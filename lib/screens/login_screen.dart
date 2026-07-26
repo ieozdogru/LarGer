@@ -1,7 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:larger/providers/auth_provider.dart';
+import 'package:larger/utils/auth_messages.dart';
+import 'package:larger/utils/validators.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -47,36 +48,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     result.whenOrNull(
       error: (error, _) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_friendlyAuthError(error))),
+          SnackBar(content: Text(friendlyAuthError(error))),
         );
       },
     );
-  }
-
-  String _friendlyAuthError(Object error) {
-    if (error is FirebaseAuthException) {
-      switch (error.code) {
-        case 'invalid-email':
-          return 'That email address looks invalid.';
-        case 'user-disabled':
-          return 'This account has been disabled.';
-        case 'user-not-found':
-        case 'wrong-password':
-        case 'invalid-credential':
-          return 'Incorrect email or password.';
-        case 'email-already-in-use':
-          return 'An account already exists for that email.';
-        case 'weak-password':
-          return 'Password is too weak. Use at least 6 characters.';
-        case 'network-request-failed':
-          return 'Network error. Check your connection.';
-        case 'operation-not-allowed':
-          return 'Email/password sign-in is not enabled in Firebase.';
-        default:
-          return error.message ?? 'Authentication failed.';
-      }
-    }
-    return 'Authentication failed.';
   }
 
   @override
@@ -131,14 +106,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         labelText: 'Email',
                         prefixIcon: Icon(Icons.email_outlined),
                       ),
-                      validator: (value) {
-                        final email = value?.trim() ?? '';
-                        if (email.isEmpty) return 'Enter your email';
-                        if (!email.contains('@') || !email.contains('.')) {
-                          return 'Enter a valid email';
-                        }
-                        return null;
-                      },
+                      validator: validateEmail,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -171,14 +139,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                       ),
-                      validator: (value) {
-                        final password = value ?? '';
-                        if (password.isEmpty) return 'Enter your password';
-                        if (password.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
+                      validator: validatePassword,
                     ),
                     if (_isSignUp) ...[
                       const SizedBox(height: 16),
@@ -205,12 +166,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                         ),
-                        validator: (value) {
-                          if (value != _passwordController.text) {
-                            return 'Passwords do not match';
-                          }
-                          return null;
-                        },
+                        validator: (value) => validateConfirmPassword(
+                          value,
+                          _passwordController.text,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 28),
