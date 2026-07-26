@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:larger/models/models.dart';
+import 'package:larger/services/dev_sample_data.dart';
 
 Future<void> initHive() async {
   await Hive.initFlutter();
@@ -137,6 +138,8 @@ Future<void> initHive() async {
       await exerciseBox.put(ex.id, ex);
     }
   }
+
+  await seedDevSampleDataIfNeeded();
 }
 
 final hiveInitProvider = FutureProvider<void>((ref) async {

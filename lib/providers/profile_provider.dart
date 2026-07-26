@@ -10,6 +10,10 @@ final bodyWeightProvider = FutureProvider<List<BodyWeightLog>>((ref) async {
   return logs;
 });
 
+final heightProvider = Provider<double>((ref) {
+  return Hive.box('settings').get('height', defaultValue: 170.0) as double;
+});
+
 final profileNotifierProvider = Provider<ProfileNotifier>((ref) {
   return ProfileNotifier(ref);
 });
@@ -26,11 +30,12 @@ class ProfileNotifier {
   }
 
   double getHeight() {
-    return Hive.box('settings').get('height', defaultValue: 170.0);
+    return ref.read(heightProvider);
   }
 
   Future<void> setHeight(double height) async {
     await Hive.box('settings').put('height', height);
+    ref.invalidate(heightProvider);
   }
 }
 
