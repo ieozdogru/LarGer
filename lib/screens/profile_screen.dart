@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:larger/providers/auth_provider.dart';
 import 'package:larger/providers/exercise_provider.dart';
 import 'package:larger/providers/profile_provider.dart';
 import 'package:larger/theme/app_theme.dart';
@@ -30,11 +31,54 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _buildAccountSection(),
+            const SizedBox(height: 24),
             _buildBodyStatsSection(),
             const SizedBox(height: 24),
             _buildAnalyticsSection(),
             const SizedBox(height: 32),
             _buildBackupSection(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAccountSection() {
+    final user = ref.watch(firebaseAuthProvider).currentUser;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'ACCOUNT',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(color: AppTheme.accentRed),
+            ),
+            const Divider(),
+            Text(
+              user?.email ?? 'Signed in',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () async {
+                  await ref.read(authNotifierProvider.notifier).signOut();
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.accentRed,
+                  side: const BorderSide(color: AppTheme.accentRed),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text('SIGN OUT'),
+              ),
+            ),
           ],
         ),
       ),
