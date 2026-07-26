@@ -1,9 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:larger/models/models.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 class BackupService {
@@ -78,28 +77,39 @@ class BackupService {
     };
 
     final jsonString = jsonEncode(data);
+    final bytes = utf8.encode(jsonString);
+    final fileName =
+        'larger_backup_${DateTime.now().toIso8601String().replaceAll(':', '-')}.json';
 
-    final directory = await getTemporaryDirectory();
-    final file = File(
-      '${directory.path}/larger_backup_${DateTime.now().toIso8601String().replaceAll(':', '-')}.json',
+    await Share.shareXFiles(
+      [
+        XFile.fromData(
+          bytes,
+          mimeType: 'application/json',
+          name: fileName,
+        ),
+      ],
+      text: 'LarGer App Backup',
+      fileNameOverrides: [fileName],
     );
-    await file.writeAsString(jsonString);
-
-    await Share.shareXFiles([XFile(file.path)], text: 'LarGer App Backup');
   }
 
   Future<bool> importData() async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
+      withData: true,
     );
 
-    if (result == null || result.files.single.path == null) {
-      return false; // User canceled
+    if (result == null || result.files.isEmpty) {
+      return false;
     }
 
-    final file = File(result.files.single.path!);
-    final jsonString = await file.readAsString();
+    final picked = result.files.single;
+    final jsonString = await _readPickedJson(picked);
+    if (jsonString == null) {
+      return false;
+    }
 
     try {
       final Map<String, dynamic> data = jsonDecode(jsonString);
@@ -213,8 +223,19 @@ class BackupService {
 
       return true;
     } catch (e) {
-      print('Error importing data: \$e');
+      print('Error importing data: $e');
       return false;
     }
+  }
+
+  /// Web returns bytes (no filesystem path); mobile/desktop may use path.
+  Future<String?> _readPickedJson(PlatformFile picked) async {
+    if (picked.bytes != null) {
+      return utf8.decode(picked.bytes!);
+    }
+    if (picked.path != null) {
+      return XFile(picked.path!).readAsString();
+    }
+    return null;
   }
 }
