@@ -2,7 +2,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:larger/models/models.dart';
 import 'package:larger/providers/auth_provider.dart';
 import 'package:larger/providers/exercise_provider.dart';
 import 'package:larger/providers/history_provider.dart';
@@ -325,8 +324,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  void _selectTrackedExercise(TrackedExercise exercise) {
+    setState(() {
+      _selectedExerciseId = exercise.exerciseId;
+      _selectedExerciseName = exercise.exerciseName.toTitleCase();
+    });
+    FocusScope.of(context).unfocus();
+  }
+
   Widget _buildAnalyticsSection() {
-    final exercisesAsync = ref.watch(exercisesProvider);
+    final trackedAsync = ref.watch(trackedExercisesProvider);
+    final recentAsync = ref.watch(recentTrackedExercisesProvider);
 
     return Card(
       child: Padding(
@@ -336,94 +344,145 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             _sectionTitle('EXERCISE ANALYTICS'),
             const SizedBox(height: 12),
-            exercisesAsync.when(
-              data: (exercises) {
-                return Autocomplete<Exercise>(
-                  displayStringForOption: (Exercise option) =>
-                      option.name.toTitleCase(),
-                  optionsBuilder: (TextEditingValue textEditingValue) {
-                    if (textEditingValue.text.isEmpty) {
-                      return exercises;
-                    }
-                    return exercises.where((Exercise option) {
-                      return option.name.toLowerCase().contains(
-                        textEditingValue.text.toLowerCase(),
-                      );
-                    });
-                  },
-                  onSelected: (Exercise selection) {
-                    setState(() {
-                      _selectedExerciseId = selection.id;
-                      _selectedExerciseName = selection.name.toTitleCase();
-                    });
-                    FocusScope.of(context).unfocus();
-                  },
-                  fieldViewBuilder:
-                      (context, controller, focusNode, onFieldSubmitted) {
-                        return TextField(
-                          controller: controller,
-                          focusNode: focusNode,
-                          decoration: InputDecoration(
-                            hintText: 'Search exercise...',
-                            prefixIcon: const Icon(
-                              Icons.search,
-                              color: Colors.grey,
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[900],
-                            border: OutlineInputBorder(
+            trackedAsync.when(
+              data: (tracked) {
+                if (tracked.isEmpty) {
+                  return const Text(
+                    'Complete sets in a workout to unlock exercise analytics.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Autocomplete<TrackedExercise>(
+                      displayStringForOption: (option) =>
+                          option.exerciseName.toTitleCase(),
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        final query = textEditingValue.text.toLowerCase();
+                        if (query.isEmpty) return tracked;
+                        return tracked.where(
+                          (option) => option.exerciseName
+                              .toLowerCase()
+                              .contains(query),
+                        );
+                      },
+                      onSelected: _selectTrackedExercise,
+                      fieldViewBuilder:
+                          (context, controller, focusNode, onFieldSubmitted) {
+                            return TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              decoration: InputDecoration(
+                                hintText: 'Search exercises with data...',
+                                prefixIcon: const Icon(
+                                  Icons.search,
+                                  color: Colors.grey,
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey[900],
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            );
+                          },
+                      optionsViewBuilder: (context, onSelected, options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4.0,
+                            color: Colors.grey[900],
+                            shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide.none,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: 250,
+                                maxWidth:
+                                    MediaQuery.of(context).size.width - 64,
+                              ),
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: options.length,
+                                itemBuilder: (context, index) {
+                                  final option = options.elementAt(index);
+                                  return ListTile(
+                                    title: Text(
+                                      option.exerciseName.toTitleCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      'Last: ${DateFormat('MMM d, yyyy').format(option.lastPerformed)}',
+                                      style: const TextStyle(color: Colors.grey),
+                                    ),
+                                    onTap: () => onSelected(option),
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         );
                       },
-                  optionsViewBuilder: (context, onSelected, options) {
-                    return Align(
-                      alignment: Alignment.topLeft,
-                      child: Material(
-                        elevation: 4.0,
-                        color: Colors.grey[900],
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight: 250,
-                            maxWidth: MediaQuery.of(context).size.width - 64,
-                          ),
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
-                            shrinkWrap: true,
-                            itemCount: options.length,
-                            itemBuilder: (BuildContext context, int index) {
-                              final Exercise option = options.elementAt(index);
-                              return ListTile(
-                                title: Text(
-                                  option.name.toTitleCase(),
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                                onTap: () {
-                                  onSelected(option);
-                                },
-                              );
-                            },
-                          ),
-                        ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'RECENT',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(height: 8),
+                    recentAsync.when(
+                      data: (recent) {
+                        return Column(
+                          children: recent.map((exercise) {
+                            final selected =
+                                exercise.exerciseId == _selectedExerciseId;
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              selected: selected,
+                              selectedTileColor: AppTheme.accentRed.withValues(
+                                alpha: 0.12,
+                              ),
+                              title: Text(exercise.exerciseName.toTitleCase()),
+                              subtitle: Text(
+                                DateFormat(
+                                  'MMM d, yyyy',
+                                ).format(exercise.lastPerformed),
+                                style: const TextStyle(color: Colors.grey),
+                              ),
+                              trailing: const Icon(
+                                Icons.chevron_right,
+                                color: Colors.grey,
+                              ),
+                              onTap: () => _selectTrackedExercise(exercise),
+                            );
+                          }).toList(),
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+                  ],
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const Text('Error loading exercises'),
+              error: (_, __) => const Text('Error loading exercise history'),
             ),
             const SizedBox(height: 20),
             if (_selectedExerciseId == null)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Text(
-                  'Search an exercise to see PRs and progress',
+                  'Pick a recent exercise or search to see PRs and progress',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey),
                 ),

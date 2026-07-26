@@ -52,6 +52,63 @@ class ProgressionEntry {
   ProgressionEntry(this.date, this.maxWeight, this.reps);
 }
 
+class TrackedExercise {
+  final String exerciseId;
+  final String exerciseName;
+  final DateTime lastPerformed;
+
+  TrackedExercise({
+    required this.exerciseId,
+    required this.exerciseName,
+    required this.lastPerformed,
+  });
+}
+
+bool _exerciseHasCompletedSets(WorkoutExercise exercise) {
+  return exercise.sets.any((set) => set.isCompleted);
+}
+
+/// Exercises that appear in history with at least one completed set,
+/// newest activity first.
+final trackedExercisesProvider = Provider<AsyncValue<List<TrackedExercise>>>((
+  ref,
+) {
+  final historyAsync = ref.watch(historyProvider);
+  return historyAsync.whenData((sessions) {
+    final latestById = <String, TrackedExercise>{};
+
+    for (final session in sessions) {
+      for (final exercise in session.exercises) {
+        final id = exercise.exerciseId;
+        final name = exercise.exerciseName;
+        if (id == null || name == null || name.isEmpty) continue;
+        if (!_exerciseHasCompletedSets(exercise)) continue;
+
+        final existing = latestById[id];
+        if (existing == null ||
+            session.startTime.isAfter(existing.lastPerformed)) {
+          latestById[id] = TrackedExercise(
+            exerciseId: id,
+            exerciseName: name,
+            lastPerformed: session.startTime,
+          );
+        }
+      }
+    }
+
+    final tracked = latestById.values.toList()
+      ..sort((a, b) => b.lastPerformed.compareTo(a.lastPerformed));
+    return tracked;
+  });
+});
+
+final recentTrackedExercisesProvider = Provider<AsyncValue<List<TrackedExercise>>>((
+  ref,
+) {
+  final trackedAsync = ref.watch(trackedExercisesProvider);
+  return trackedAsync.whenData((tracked) => tracked.take(5).toList());
+});
+
 final exerciseAnalyticsProvider =
     Provider.family<AsyncValue<ExerciseAnalytics?>, String?>((ref, exerciseId) {
       if (exerciseId == null) return const AsyncValue.data(null);
