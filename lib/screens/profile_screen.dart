@@ -1,4 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +9,7 @@ import 'package:larger/providers/history_provider.dart';
 import 'package:larger/providers/profile_provider.dart';
 import 'package:larger/providers/routine_provider.dart';
 import 'package:larger/services/backup_service.dart';
+import 'package:larger/services/dev_sample_data.dart';
 import 'package:larger/services/local_user_data_service.dart';
 import 'package:larger/theme/app_theme.dart';
 import 'package:larger/utils/string_extensions.dart';
@@ -40,6 +42,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _buildAnalyticsSection(),
             const SizedBox(height: 20),
             _buildBackupSection(),
+            if (kDebugMode) ...[
+              const SizedBox(height: 20),
+              _buildDeveloperSection(),
+            ],
           ],
         ),
       ),
@@ -648,14 +654,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 12),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: AppTheme.accentRed,
-                side: const BorderSide(color: AppTheme.accentRed),
+                backgroundColor: Colors.grey[900],
+                foregroundColor: Colors.white70,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              onPressed: _showImportWarningDialog,
+              onPressed: () => _confirmImport(),
               child: const Text(
-                'Import Backup',
+                'Import Data (JSON)',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
@@ -663,6 +668,69 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildDeveloperSection() {
+    final tier = readSampleDataTier();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _sectionTitle('DEVELOPER'),
+            const SizedBox(height: 8),
+            Text(
+              'Current sample tier: ${tier.label}',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Debug builds only',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            ...SampleDataTier.values.map((sampleTier) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: tier == sampleTier
+                        ? AppTheme.accentRed
+                        : Colors.black,
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: AppTheme.accentRed),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: () => _seedSampleTier(sampleTier),
+                  child: Text('Seed ${sampleTier.label}'),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _seedSampleTier(SampleDataTier tier) async {
+    await clearLocalUserData();
+    await seedDevSampleData(tier: tier);
+    ref.invalidate(historyProvider);
+    ref.invalidate(routineNotifierProvider);
+    ref.invalidate(exercisesProvider);
+    ref.invalidate(bodyWeightProvider);
+    ref.invalidate(heightProvider);
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Seeded ${tier.label} sample data')),
+    );
+  }
+
+  void _confirmImport() {
+    _showImportWarningDialog();
   }
 
   void _showImportWarningDialog() {

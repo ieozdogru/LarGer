@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:larger/providers/active_workout_provider.dart';
 import 'package:larger/providers/routine_provider.dart';
-import 'package:larger/providers/exercise_provider.dart';
 import 'package:larger/models/models.dart';
 import 'package:larger/screens/exercise_selection_screen.dart';
+import 'package:larger/utils/workout_start.dart';
 
 class StartWorkoutScreen extends ConsumerWidget {
   const StartWorkoutScreen({super.key});
@@ -22,9 +21,7 @@ class StartWorkoutScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ElevatedButton(
-              onPressed: () {
-                ref.read(activeWorkoutProvider.notifier).startWorkout();
-              },
+              onPressed: () => startEmptyWorkout(ref),
               child: const Text('START EMPTY WORKOUT'),
             ),
             const SizedBox(height: 32),
@@ -121,27 +118,8 @@ class StartWorkoutScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     Routine routine,
-  ) async {
-    final allExercises = await ref.read(exercisesProvider.future);
-
-    final preparedExercises = routine.exercises.map((re) {
-      final ex = allExercises.firstWhere(
-        (e) => e.id == re.exerciseId,
-        orElse: () => Exercise(name: 'Unknown', category: ''),
-      );
-      return WorkoutExercise()
-        ..exerciseId = ex.id
-        ..exerciseName = ex.name
-        ..sets = List.generate(re.targetSets, (_) => WorkoutSet());
-    }).toList();
-
-    ref
-        .read(activeWorkoutProvider.notifier)
-        .startWorkout(
-          routineName: routine.name,
-          preparedExercises: preparedExercises,
-        );
-  }
+  ) =>
+      startRoutineWorkout(ref, routine);
 
   void _confirmDelete(BuildContext context, WidgetRef ref, Routine routine) {
     showDialog(

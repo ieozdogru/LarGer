@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:larger/screens/history_screen.dart';
-import 'package:larger/screens/start_workout_screen.dart';
-import 'package:larger/screens/active_workout_screen.dart';
-import 'package:larger/screens/profile_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:larger/providers/active_workout_provider.dart';
+import 'package:larger/screens/history_screen.dart';
+import 'package:larger/screens/profile_screen.dart';
+import 'package:larger/screens/today_screen.dart';
+import 'package:larger/screens/active_workout_screen.dart';
+import 'package:larger/theme/app_theme.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   const MainLayout({super.key});
@@ -14,11 +15,12 @@ class MainLayout extends ConsumerStatefulWidget {
 }
 
 class _MainLayoutState extends ConsumerState<MainLayout> {
-  int _currentIndex = 0;
+  /// History = 0, Today = 1 (default), Profile = 2
+  int _currentIndex = 1;
 
   final List<Widget> _screens = [
     const HistoryScreen(),
-    const StartWorkoutScreen(),
+    const TodayScreen(),
     const ProfileScreen(),
   ];
 
@@ -31,21 +33,32 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     }
 
     return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
           setState(() {
             _currentIndex = index;
           });
         },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline),
-            label: 'Workout',
+        backgroundColor: AppTheme.surfaceColor,
+        indicatorColor: AppTheme.accentRed.withValues(alpha: 0.2),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history, color: AppTheme.accentRed),
+            label: 'History',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          NavigationDestination(
+            icon: Icon(Icons.today_outlined),
+            selectedIcon: Icon(Icons.today, color: AppTheme.accentRed),
+            label: 'Today',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person, color: AppTheme.accentRed),
+            label: 'Profile',
+          ),
         ],
       ),
     );

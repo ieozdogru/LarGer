@@ -33,6 +33,7 @@ void main() {
       BodyWeightLog(id: 'w1', weight: 80, date: DateTime(2026, 1, 1)),
     );
     await settings.put('height', 180.0);
+    await settings.put('sampleDataTier', 'expert');
 
     await clearLocalUserData();
 
@@ -40,6 +41,7 @@ void main() {
     expect(routines.isEmpty, isTrue);
     expect(weights.isEmpty, isTrue);
     expect(settings.containsKey('height'), isFalse);
+    expect(settings.containsKey('sampleDataTier'), isFalse);
   });
 
   test('clearLocalUserData is safe when boxes are already empty', () async {
