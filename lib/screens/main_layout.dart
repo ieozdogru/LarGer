@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:larger/screens/history_screen.dart';
-import 'package:larger/screens/routines_screen.dart';
 import 'package:larger/screens/start_workout_screen.dart';
 import 'package:larger/screens/active_workout_screen.dart';
 import 'package:larger/screens/profile_screen.dart';
@@ -20,7 +19,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   final List<Widget> _screens = [
     const HistoryScreen(),
     const StartWorkoutScreen(),
-    const RoutinesScreen(),
     const ProfileScreen(),
   ];
 
@@ -46,10 +44,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           BottomNavigationBarItem(
             icon: Icon(Icons.add_circle_outline),
             label: 'Workout',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list_alt),
-            label: 'Routines',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
