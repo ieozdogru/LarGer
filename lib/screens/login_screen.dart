@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:larger/providers/auth_provider.dart';
@@ -203,6 +204,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: const TextStyle(color: Colors.grey),
                       ),
                     ),
+                    if (kDebugMode) ...[
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: isSubmitting
+                            ? null
+                            : () async {
+                                await ref
+                                    .read(authNotifierProvider.notifier)
+                                    .signInDebug();
+                                if (!mounted) return;
+                                final result = ref.read(authNotifierProvider);
+                                result.whenOrNull(
+                                  error: (error, _) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(friendlyAuthError(error)),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                        child: const Text(
+                          'Skip login (debug)',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

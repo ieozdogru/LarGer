@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:larger/models/models.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:larger/models/models.dart';
 import 'package:larger/providers/history_provider.dart';
 
 class ActiveWorkoutState {
@@ -134,9 +136,6 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
   void reorderExercises(int oldIndex, int newIndex) {
     if (state == null) return;
     final exercises = List<WorkoutExercise>.from(state!.exercises);
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
     final item = exercises.removeAt(oldIndex);
     exercises.insert(newIndex, item);
     state = state!.copyWith(exercises: exercises);
@@ -177,7 +176,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
       state = null;
       return session;
     } catch (e) {
-      print('Error saving workout to Hive: $e');
+      debugPrint('Error saving workout to Hive: $e');
       return null;
     }
   }

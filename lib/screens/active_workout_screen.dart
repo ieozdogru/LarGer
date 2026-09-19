@@ -73,7 +73,7 @@ class ActiveWorkoutScreen extends ConsumerWidget {
       body: ReorderableListView.builder(
         padding: const EdgeInsets.only(bottom: 160),
         itemCount: activeWorkout.exercises.length,
-        onReorder: (oldIndex, newIndex) {
+        onReorderItem: (oldIndex, newIndex) {
           ref
               .read(activeWorkoutProvider.notifier)
               .reorderExercises(oldIndex, newIndex);

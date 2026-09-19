@@ -48,7 +48,7 @@ void main() {
       );
       expect(
         friendlyAuthError(FirebaseAuthException(code: 'operation-not-allowed')),
-        'Email/password sign-in is not enabled in Firebase.',
+        'This sign-in method is not enabled in Firebase.',
       );
     });
 

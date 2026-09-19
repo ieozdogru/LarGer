@@ -15,7 +15,7 @@ void main() {
       overrides: [
         firebaseAuthProvider.overrideWithValue(mockAuth),
         authNotifierProvider.overrideWith(
-          (ref) => AuthNotifier(mockAuth),
+          (ref) => AuthNotifier(mockAuth, ref),
         ),
       ],
       child: const MaterialApp(home: LoginScreen()),
@@ -75,7 +75,7 @@ void main() {
       ProviderScope(
         overrides: [
           firebaseAuthProvider.overrideWithValue(mockAuth),
-          authNotifierProvider.overrideWith((ref) => AuthNotifier(mockAuth)),
+          authNotifierProvider.overrideWith((ref) => AuthNotifier(mockAuth, ref)),
         ],
         child: const MaterialApp(home: LoginScreen()),
       ),
@@ -100,7 +100,7 @@ void main() {
       ProviderScope(
         overrides: [
           firebaseAuthProvider.overrideWithValue(mockAuth),
-          authNotifierProvider.overrideWith((ref) => AuthNotifier(mockAuth)),
+          authNotifierProvider.overrideWith((ref) => AuthNotifier(mockAuth, ref)),
         ],
         child: const MaterialApp(home: LoginScreen()),
       ),
@@ -121,7 +121,7 @@ void main() {
       ProviderScope(
         overrides: [
           firebaseAuthProvider.overrideWithValue(mockAuth),
-          authNotifierProvider.overrideWith((ref) => AuthNotifier(mockAuth)),
+          authNotifierProvider.overrideWith((ref) => AuthNotifier(mockAuth, ref)),
         ],
         child: const MaterialApp(home: LoginScreen()),
       ),
@@ -137,6 +137,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(mockAuth.currentUser?.email, 'new@test.com');
+  });
+
+  testWidgets('shows debug skip login in debug builds', (tester) async {
+    await tester.pumpWidget(buildLoginApp());
+
+    expect(find.text('Skip login (debug)'), findsOneWidget);
+    await tester.tap(find.text('Skip login (debug)'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('toggles password visibility icon', (tester) async {

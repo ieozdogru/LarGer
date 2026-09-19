@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:larger/models/models.dart';
 import 'package:share_plus/share_plus.dart';
@@ -81,31 +82,31 @@ class BackupService {
     final fileName =
         'larger_backup_${DateTime.now().toIso8601String().replaceAll(':', '-')}.json';
 
-    await Share.shareXFiles(
-      [
-        XFile.fromData(
-          bytes,
-          mimeType: 'application/json',
-          name: fileName,
-        ),
-      ],
-      text: 'LarGer App Backup',
-      fileNameOverrides: [fileName],
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [
+          XFile.fromData(
+            bytes,
+            mimeType: 'application/json',
+            name: fileName,
+          ),
+        ],
+        text: 'LarGer App Backup',
+        fileNameOverrides: [fileName],
+      ),
     );
   }
 
   Future<bool> importData() async {
-    final result = await FilePicker.pickFiles(
+    final picked = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['json'],
-      withData: true,
     );
 
-    if (result == null || result.files.isEmpty) {
+    if (picked == null) {
       return false;
     }
 
-    final picked = result.files.single;
     final jsonString = await _readPickedJson(picked);
     if (jsonString == null) {
       return false;
@@ -223,19 +224,17 @@ class BackupService {
 
       return true;
     } catch (e) {
-      print('Error importing data: $e');
+      debugPrint('Error importing data: $e');
       return false;
     }
   }
 
-  /// Web returns bytes (no filesystem path); mobile/desktop may use path.
   Future<String?> _readPickedJson(PlatformFile picked) async {
-    if (picked.bytes != null) {
-      return utf8.decode(picked.bytes!);
+    try {
+      final bytes = await picked.readAsBytes();
+      return utf8.decode(bytes);
+    } catch (_) {
+      return null;
     }
-    if (picked.path != null) {
-      return XFile(picked.path!).readAsString();
-    }
-    return null;
   }
 }

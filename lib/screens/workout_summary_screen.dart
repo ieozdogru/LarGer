@@ -58,8 +58,9 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
             double vol = 0.0;
             for (var ps in pastEx.sets) {
               if (!ps.isCompleted) continue;
-              if (ps.weight > historicalMaxWeight)
+              if (ps.weight > historicalMaxWeight) {
                 historicalMaxWeight = ps.weight;
+              }
               vol += (ps.weight * ps.reps);
             }
             if (vol > historicalMaxVolume) historicalMaxVolume = vol;

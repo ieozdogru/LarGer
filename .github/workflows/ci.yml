@@ -24,6 +24,20 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Stub Firebase options
+        run: |
+          cat > lib/firebase_options.dart << 'EOF'
+          import 'package:firebase_core/firebase_core.dart';
+
+          class DefaultFirebaseOptions {
+            static FirebaseOptions get currentPlatform {
+              throw UnsupportedError(
+                'Generate lib/firebase_options.dart with flutterfire configure.',
+              );
+            }
+          }
+          EOF
+
       - name: Analyze
         run: flutter analyze lib test --no-fatal-infos
 

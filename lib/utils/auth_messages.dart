@@ -18,7 +18,7 @@ String friendlyAuthError(Object error) {
       case 'network-request-failed':
         return 'Network error. Check your connection.';
       case 'operation-not-allowed':
-        return 'Email/password sign-in is not enabled in Firebase.';
+        return 'This sign-in method is not enabled in Firebase.';
       default:
         return error.message ?? 'Authentication failed.';
     }

@@ -63,7 +63,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _buildAccountSection() {
     final user = ref.watch(firebaseAuthProvider).currentUser;
-    final email = user?.email ?? 'Signed in';
+    final debugSession = kDebugMode && ref.watch(debugSessionProvider);
+    final email = debugSession ? 'Debug session' : (user?.email ?? 'Signed in');
     final initial = email.isNotEmpty ? email[0].toUpperCase() : '?';
 
     return Card(
@@ -200,7 +201,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 padding: EdgeInsets.symmetric(vertical: 16),
                 child: Center(child: CircularProgressIndicator()),
               ),
-              error: (_, __) => const ListTile(
+              error: (_, _) => const ListTile(
                 title: Text('Weight'),
                 subtitle: Text('Could not load weight logs'),
               ),
@@ -475,13 +476,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         );
                       },
                       loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
+                      error: (_, _) => const SizedBox.shrink(),
                     ),
                   ],
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const Text('Error loading exercise history'),
+              error: (_, _) => const Text('Error loading exercise history'),
             ),
             const SizedBox(height: 20),
             if (_selectedExerciseId == null)
@@ -565,7 +566,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const Text('Error loading analytics'),
+      error: (_, _) => const Text('Error loading analytics'),
     );
   }
 

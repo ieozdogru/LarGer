@@ -45,6 +45,23 @@ void main() {
       expect(notifier.state, isA<AsyncError<void>>());
     });
 
+    test('signInDebug starts a local debug session', () async {
+      final auth = MockFirebaseAuth();
+      final container = ProviderContainer(
+        overrides: [firebaseAuthProvider.overrideWithValue(auth)],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(authNotifierProvider.notifier).signInDebug();
+
+      expect(container.read(authNotifierProvider), isA<AsyncData<void>>());
+      expect(container.read(debugSessionProvider), isTrue);
+      expect(auth.currentUser, isNull);
+
+      await container.read(authNotifierProvider.notifier).signOut();
+      expect(container.read(debugSessionProvider), isFalse);
+    });
+
     test('signOut clears the current user', () async {
       final auth = MockFirebaseAuth(
         mockUser: MockUser(email: 'user@test.com'),

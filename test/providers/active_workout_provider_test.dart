@@ -91,7 +91,7 @@ void main() {
       notifier.startWorkout();
       notifier.addExercise(Exercise(id: 'a', name: 'A', category: 'Chest'));
       notifier.addExercise(Exercise(id: 'b', name: 'B', category: 'Back'));
-      notifier.reorderExercises(0, 2);
+      notifier.reorderExercises(0, 1);
 
       final names = container
           .read(activeWorkoutProvider)!
