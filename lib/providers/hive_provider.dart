@@ -13,11 +13,13 @@ Future<void> initHive() async {
   Hive.registerAdapter(WorkoutSessionAdapter());
   Hive.registerAdapter(BodyWeightLogAdapter());
   Hive.registerAdapter(RoutineExerciseAdapter());
+  Hive.registerAdapter(FoodEntryAdapter());
 
   await Hive.openBox<Exercise>('exercises');
   await Hive.openBox<Routine>('routines');
   await Hive.openBox<WorkoutSession>('sessions');
   await Hive.openBox<BodyWeightLog>('bodyWeightLogs');
+  await Hive.openBox<FoodEntry>('foodEntries');
   await Hive.openBox('settings');
 
   final exerciseBox = Hive.box<Exercise>('exercises');

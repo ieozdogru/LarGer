@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:larger/providers/active_workout_provider.dart';
+import 'package:larger/screens/food_screen.dart';
 import 'package:larger/screens/history_screen.dart';
 import 'package:larger/screens/profile_screen.dart';
 import 'package:larger/screens/today_screen.dart';
@@ -15,12 +16,13 @@ class MainLayout extends ConsumerStatefulWidget {
 }
 
 class _MainLayoutState extends ConsumerState<MainLayout> {
-  /// History = 0, Today = 1 (default), Profile = 2
+  /// History = 0, Today = 1 (default), Food = 2, Profile = 3
   int _currentIndex = 1;
 
   final List<Widget> _screens = [
     const HistoryScreen(),
     const TodayScreen(),
+    const FoodScreen(),
     const ProfileScreen(),
   ];
 
@@ -53,6 +55,11 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             icon: Icon(Icons.today_outlined),
             selectedIcon: Icon(Icons.today, color: AppTheme.accentRed),
             label: 'Today',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.restaurant_outlined),
+            selectedIcon: Icon(Icons.restaurant, color: AppTheme.accentRed),
+            label: 'Food',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

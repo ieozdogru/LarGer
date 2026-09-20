@@ -12,6 +12,7 @@ class BackupService {
     final routinesBox = Hive.box<Routine>('routines');
     final sessionsBox = Hive.box<WorkoutSession>('sessions');
     final bodyWeightLogsBox = Hive.box<BodyWeightLog>('bodyWeightLogs');
+    final foodEntriesBox = Hive.box<FoodEntry>('foodEntries');
     final settingsBox = Hive.box('settings');
 
     final data = {
@@ -72,6 +73,23 @@ class BackupService {
             },
           )
           .toList(),
+      'foodEntries': foodEntriesBox.values
+          .map(
+            (f) => {
+              'id': f.id,
+              'name': f.name,
+              'meal': f.meal,
+              'loggedAt': f.loggedAt.toIso8601String(),
+              'servingLabel': f.servingLabel,
+              'servings': f.servings,
+              'calories': f.calories,
+              'proteinG': f.proteinG,
+              'carbsG': f.carbsG,
+              'fatG': f.fatG,
+              'source': f.source,
+            },
+          )
+          .toList(),
       'settings': settingsBox.toMap().map(
         (key, value) => MapEntry(key.toString(), value),
       ),
@@ -119,6 +137,7 @@ class BackupService {
       final routinesBox = Hive.box<Routine>('routines');
       final sessionsBox = Hive.box<WorkoutSession>('sessions');
       final bodyWeightLogsBox = Hive.box<BodyWeightLog>('bodyWeightLogs');
+      final foodEntriesBox = Hive.box<FoodEntry>('foodEntries');
       final settingsBox = Hive.box('settings');
 
       // CRITICAL: Strict overwrite
@@ -126,6 +145,7 @@ class BackupService {
       await routinesBox.clear();
       await sessionsBox.clear();
       await bodyWeightLogsBox.clear();
+      await foodEntriesBox.clear();
       await settingsBox.clear();
 
       // Restore Exercises
@@ -211,6 +231,25 @@ class BackupService {
             date: DateTime.parse(bData['date']),
           );
           await bodyWeightLogsBox.put(log.id, log);
+        }
+      }
+
+      if (data['foodEntries'] != null) {
+        for (var fData in data['foodEntries']) {
+          final entry = FoodEntry(
+            id: fData['id'],
+            name: fData['name'] ?? '',
+            meal: fData['meal'] ?? 'snack',
+            loggedAt: DateTime.parse(fData['loggedAt']),
+            servingLabel: fData['servingLabel'],
+            servings: (fData['servings'] ?? 1.0).toDouble(),
+            calories: (fData['calories'] as num?)?.toDouble(),
+            proteinG: (fData['proteinG'] as num?)?.toDouble(),
+            carbsG: (fData['carbsG'] as num?)?.toDouble(),
+            fatG: (fData['fatG'] as num?)?.toDouble(),
+            source: fData['source'] ?? 'manual',
+          );
+          await foodEntriesBox.put(entry.id, entry);
         }
       }
 

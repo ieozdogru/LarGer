@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:larger/providers/auth_provider.dart';
 import 'package:larger/providers/exercise_provider.dart';
+import 'package:larger/providers/food_provider.dart';
 import 'package:larger/providers/history_provider.dart';
 import 'package:larger/providers/profile_provider.dart';
 import 'package:larger/providers/routine_provider.dart';
@@ -154,6 +155,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ref.invalidate(routineNotifierProvider);
     ref.invalidate(bodyWeightProvider);
     ref.invalidate(heightProvider);
+    ref.invalidate(foodEntriesProvider);
     setState(() {
       _selectedExerciseId = null;
       _selectedExerciseName = null;
@@ -723,6 +725,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ref.invalidate(exercisesProvider);
     ref.invalidate(bodyWeightProvider);
     ref.invalidate(heightProvider);
+    ref.invalidate(foodEntriesProvider);
     if (!mounted) return;
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
@@ -743,7 +746,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           style: TextStyle(color: AppTheme.accentRed),
         ),
         content: const Text(
-          'Importing a backup permanently erases workouts, routines, and body stats currently on this device, then replaces them with the file you choose. This cannot be undone.',
+          'Importing a backup permanently erases workouts, routines, food logs, and body stats currently on this device, then replaces them with the file you choose. This cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -765,6 +768,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ref.invalidate(exercisesProvider);
                 ref.invalidate(bodyWeightProvider);
                 ref.invalidate(heightProvider);
+                ref.invalidate(foodEntriesProvider);
                 messenger.showSnackBar(
                   const SnackBar(
                     content: Text('Backup imported successfully!'),

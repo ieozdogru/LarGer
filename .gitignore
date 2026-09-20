@@ -11,6 +11,8 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+temp/
+build/
 
 # IntelliJ related
 *.iml
@@ -27,11 +29,15 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
 /build/
 coverage/
+**/.symlinks/
+**/Pods/
+**/xcshareddata/swiftpm/
 
 # Symbolication related
 app.*.symbols

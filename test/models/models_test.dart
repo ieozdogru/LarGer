@@ -47,6 +47,43 @@ void main() {
     });
   });
 
+  group('FoodEntry', () {
+    test('scales per-serving macros by servings', () {
+      final entry = FoodEntry(
+        id: 'f-1',
+        name: 'Yogurt',
+        meal: 'breakfast',
+        loggedAt: DateTime(2026, 9, 20),
+        servings: 2,
+        calories: 100,
+        proteinG: 10,
+        carbsG: 12,
+        fatG: 3,
+        source: 'ocr',
+      );
+
+      expect(entry.totalCalories, 200);
+      expect(entry.totalProteinG, 20);
+      expect(entry.totalCarbsG, 24);
+      expect(entry.totalFatG, 6);
+    });
+
+    test('keeps missing macros null after scaling', () {
+      final entry = FoodEntry(
+        name: 'Unknown',
+        meal: 'snack',
+        loggedAt: DateTime(2026, 9, 20),
+        calories: 80,
+      );
+
+      expect(entry.id, isNotEmpty);
+      expect(entry.source, 'manual');
+      expect(entry.servings, 1);
+      expect(entry.totalCalories, 80);
+      expect(entry.totalProteinG, isNull);
+    });
+  });
+
   group('BodyWeightLog', () {
     test('stores weight and date', () {
       final date = DateTime(2026, 7, 26);

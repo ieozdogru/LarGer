@@ -21,6 +21,7 @@ void main() {
     final sessions = Hive.box<WorkoutSession>('sessions');
     final routines = Hive.box<Routine>('routines');
     final weights = Hive.box<BodyWeightLog>('bodyWeightLogs');
+    final foods = Hive.box<FoodEntry>('foodEntries');
     final settings = Hive.box('settings');
 
     await sessions.put(
@@ -32,6 +33,16 @@ void main() {
       'w1',
       BodyWeightLog(id: 'w1', weight: 80, date: DateTime(2026, 1, 1)),
     );
+    await foods.put(
+      'f1',
+      FoodEntry(
+        id: 'f1',
+        name: 'Oats',
+        meal: 'breakfast',
+        loggedAt: DateTime(2026, 1, 1),
+        calories: 150,
+      ),
+    );
     await settings.put('height', 180.0);
     await settings.put('sampleDataTier', 'expert');
 
@@ -40,6 +51,7 @@ void main() {
     expect(sessions.isEmpty, isTrue);
     expect(routines.isEmpty, isTrue);
     expect(weights.isEmpty, isTrue);
+    expect(foods.isEmpty, isTrue);
     expect(settings.containsKey('height'), isFalse);
     expect(settings.containsKey('sampleDataTier'), isFalse);
   });
