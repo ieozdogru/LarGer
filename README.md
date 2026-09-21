@@ -12,7 +12,6 @@
 <p align="center">
   <img alt="Flutter" src="https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter&logoColor=white" />
   <img alt="Dart" src="https://img.shields.io/badge/Dart-%5E3.9.2-0175C2?logo=dart&logoColor=white" />
-  <img alt="Firebase Auth" src="https://img.shields.io/badge/Firebase-Auth-FFCA28?logo=firebase&logoColor=black" />
   <img alt="License" src="https://img.shields.io/badge/license-private-lightgrey" />
 </p>
 
@@ -22,7 +21,6 @@
 
 | Area | What you get |
 |------|----------------|
-| **Auth** | Email/password sign-in via Firebase Auth |
 | **Workout** | Start empty or from a routine; live timer; log reps/weight; reorder exercises |
 | **Routines** | Create, edit, and delete routines with target set counts (same tab as Workout) |
 | **History** | Calendar of past sessions; edit or delete workouts |
@@ -30,7 +28,7 @@
 | **Backup** | Export / import full local data as JSON |
 | **Android** | Media key controls (prev / play-pause / next) during active workouts |
 
-Workout data stays **on-device** (Hive). Firebase is used for authentication only (for now).
+Workout data stays **on-device** (Hive).
 
 ## Tech stack
 
@@ -39,7 +37,6 @@ Workout data stays **on-device** (Hive). Firebase is used for authentication onl
 | App | Flutter / Dart `^3.9.2` |
 | State | Riverpod |
 | Local DB | Hive |
-| Auth | Firebase Auth |
 | Charts | fl_chart |
 | Calendar | table_calendar |
 
@@ -48,7 +45,6 @@ Workout data stays **on-device** (Hive). Firebase is used for authentication onl
 ### Prerequisites
 
 - [Flutter](https://docs.flutter.dev/get-started/install) (stable)
-- Firebase CLI + FlutterFire CLI (for your own Firebase project)
 - A device, emulator, or Chrome for web
 
 ### 1. Clone & dependencies
@@ -59,24 +55,7 @@ cd LarGer
 flutter pub get
 ```
 
-### 2. Firebase setup
-
-Firebase client config is **not** in the repo (public-repo safety). Create your own project, then:
-
-```bash
-# One-time tooling
-npm install -g firebase-tools   # or: curl -sL https://firebase.tools | bash
-dart pub global activate flutterfire_cli
-
-firebase login
-dart pub global run flutterfire_cli:flutterfire configure
-```
-
-Enable **Email/Password** under Firebase Console → Authentication → Sign-in method.
-
-Place `google-services.json` at `android/app/` if FlutterFire did not already.
-
-### 3. Run
+### 2. Run
 
 ```bash
 flutter run                 # default device
@@ -104,10 +83,10 @@ dart run build_runner build --delete-conflicting-outputs
 
 ```text
 lib/
-├── main.dart              # Firebase init + auth gate
+├── main.dart              # Hive init + app shell
 ├── models/                # Domain models + Hive adapters
-├── providers/             # Riverpod (auth, routines, workouts, history, profile)
-├── screens/               # Login, history, workout, profile, …
+├── providers/             # Riverpod (routines, workouts, history, profile)
+├── screens/               # History, today, food, profile, …
 ├── services/              # Backup, media keys, local clear, debug sample data
 ├── theme/
 ├── utils/
@@ -126,7 +105,7 @@ Stored locally in Hive:
 | `bodyWeightLogs` | Weight history |
 | `settings` | e.g. height |
 
-Sign-out clears user local data (sessions, routines, body stats) but keeps the exercise catalog. JSON backup is the way to move data between devices.
+JSON backup is the way to move data between devices. The exercise catalog stays on the device independently of workout history.
 
 > **Debug tip:** In debug builds, empty session storage is seeded with sample workouts so History / Analytics have something to show. Release builds do not seed sample data.
 
@@ -137,8 +116,7 @@ Android, iOS, macOS, Linux, Windows, and web. In-workout media key controls are 
 ## Contributing
 
 1. Fork and create a feature branch  
-2. Keep Firebase config out of git (already gitignored)  
-3. Run tests before opening a PR  
+2. Run tests before opening a PR  
 
 ## License
 

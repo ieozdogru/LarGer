@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:larger/providers/auth_provider.dart';
 import 'package:larger/providers/exercise_provider.dart';
 import 'package:larger/providers/food_provider.dart';
 import 'package:larger/providers/history_provider.dart';
@@ -36,8 +35,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildAccountSection(),
-            const SizedBox(height: 20),
             _buildBodyStatsSection(),
             const SizedBox(height: 20),
             _buildAnalyticsSection(),
@@ -60,107 +57,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         context,
       ).textTheme.titleLarge?.copyWith(color: AppTheme.accentRed),
     );
-  }
-
-  Widget _buildAccountSection() {
-    final user = ref.watch(firebaseAuthProvider).currentUser;
-    final debugSession = kDebugMode && ref.watch(debugSessionProvider);
-    final email = debugSession ? 'Debug session' : (user?.email ?? 'Signed in');
-    final initial = email.isNotEmpty ? email[0].toUpperCase() : '?';
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _sectionTitle('ACCOUNT'),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: AppTheme.accentRed.withValues(alpha: 0.2),
-                  child: Text(
-                    initial,
-                    style: const TextStyle(
-                      color: AppTheme.accentRed,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Signed in as',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        email,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: _confirmSignOut,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.accentRed,
-                side: const BorderSide(color: AppTheme.accentRed),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              child: const Text('SIGN OUT'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _confirmSignOut() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Sign out?'),
-        content: const Text(
-          'This signs you out and clears workouts, routines, and body stats saved on this device. The exercise catalog stays available.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Sign out'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    await clearLocalUserData();
-    ref.invalidate(historyProvider);
-    ref.invalidate(routineNotifierProvider);
-    ref.invalidate(bodyWeightProvider);
-    ref.invalidate(heightProvider);
-    ref.invalidate(foodEntriesProvider);
-    setState(() {
-      _selectedExerciseId = null;
-      _selectedExerciseName = null;
-    });
-    await ref.read(authNotifierProvider.notifier).signOut();
   }
 
   Widget _buildBodyStatsSection() {
