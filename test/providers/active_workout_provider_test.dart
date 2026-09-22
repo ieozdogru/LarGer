@@ -173,6 +173,31 @@ void main() {
       expect(box.values.first.totalVolume, 500);
     });
 
+    test('finishWorkout removes the saved draft', () async {
+      notifier.startWorkout(routineName: 'Legs');
+      notifier.addExercise(Exercise(id: 'ex-1', name: 'Squat', category: 'Legs'));
+      expect(Hive.box<WorkoutSession>('activeWorkout').isNotEmpty, isTrue);
+
+      await notifier.finishWorkout();
+
+      expect(Hive.box<WorkoutSession>('activeWorkout').isEmpty, isTrue);
+    });
+
+    test('a new notifier restores the in-progress workout', () {
+      notifier.startWorkout(routineName: 'Push');
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'),
+      );
+      notifier.updateSet(0, 0, reps: 5, weight: 40, isCompleted: true);
+
+      final next = ProviderContainer();
+      addTearDown(next.dispose);
+      final state = next.read(activeWorkoutProvider)!;
+      expect(state.routineName, 'Push');
+      expect(state.exercises.single.sets.single.reps, 5);
+      expect(state.exercises.single.sets.single.isCompleted, isTrue);
+    });
+
     test('methods no-op when workout is inactive', () {
       notifier.addExercise(Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'));
       notifier.addSet(0);
