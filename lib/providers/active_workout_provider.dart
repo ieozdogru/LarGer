@@ -32,7 +32,10 @@ class ActiveWorkoutState {
 class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
   final Ref ref;
 
-  ActiveWorkoutNotifier(this.ref) : super(null);
+  ActiveWorkoutNotifier(this.ref) : super(null) {
+    final restored = _readDraft();
+    if (restored != null) state = restored;
+  }
 
   void startWorkout({
     String? routineName,
@@ -43,6 +46,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
       startTime: DateTime.now(),
       exercises: preparedExercises ?? [],
     );
+    _persist();
   }
 
   bool addExercise(Exercise exercise) {
@@ -58,6 +62,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
       ..sets = [WorkoutSet()];
 
     state = state!.copyWith(exercises: [...state!.exercises, newExercise]);
+    _persist();
     return true;
   }
 
@@ -77,6 +82,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
       ..sets = current.sets
       ..notes = current.notes;
     state = state!.copyWith(exercises: exercises);
+    _persist();
     return true;
   }
 
@@ -94,6 +100,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
 
     exercises[exerciseIndex] = _copyExercise(exercises[exerciseIndex], sets);
     state = state!.copyWith(exercises: exercises);
+    _persist();
   }
 
   void updateSet(
@@ -117,6 +124,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
 
     exercises[exerciseIndex] = _copyExercise(exercises[exerciseIndex], sets);
     state = state!.copyWith(exercises: exercises);
+    _persist();
   }
 
   void removeSet(int exerciseIndex, int setIndex) {
@@ -127,6 +135,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
 
     exercises[exerciseIndex] = _copyExercise(exercises[exerciseIndex], sets);
     state = state!.copyWith(exercises: exercises);
+    _persist();
   }
 
   void removeExercise(int exerciseIndex) {
@@ -134,6 +143,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
     final exercises = List<WorkoutExercise>.from(state!.exercises);
     exercises.removeAt(exerciseIndex);
     state = state!.copyWith(exercises: exercises);
+    _persist();
   }
 
   void reorderExercises(int oldIndex, int newIndex) {
@@ -142,10 +152,28 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
     final item = exercises.removeAt(oldIndex);
     exercises.insert(newIndex, item);
     state = state!.copyWith(exercises: exercises);
+    _persist();
   }
 
   void cancelWorkout() {
     state = null;
+    _persist();
+  }
+
+  void _persist() {
+    if (!Hive.isBoxOpen('activeWorkout')) return;
+    final box = Hive.box<WorkoutSession>('activeWorkout');
+    final current = state;
+    if (current == null) {
+      box.delete(_activeDraftId);
+      return;
+    }
+    final draft = WorkoutSession(id: _activeDraftId)
+      ..routineName = current.routineName
+      ..startTime = current.startTime
+      ..exercises = current.exercises
+      ..isCompleted = false;
+    box.put(_activeDraftId, draft);
   }
 
   Future<WorkoutSession?> finishWorkout() async {
@@ -177,6 +205,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
       ref.invalidate(historyProvider);
 
       state = null;
+      _persist();
       return session;
     } catch (e) {
       debugPrint('Error saving workout to Hive: $e');
@@ -208,4 +237,17 @@ WorkoutExercise _copyExercise(WorkoutExercise exercise, List<WorkoutSet> sets) {
     ..exerciseName = exercise.exerciseName
     ..sets = sets
     ..notes = exercise.notes;
+}
+
+const _activeDraftId = 'active-draft';
+
+ActiveWorkoutState? _readDraft() {
+  if (!Hive.isBoxOpen('activeWorkout')) return null;
+  final draft = Hive.box<WorkoutSession>('activeWorkout').get(_activeDraftId);
+  if (draft == null) return null;
+  return ActiveWorkoutState(
+    routineName: draft.routineName,
+    startTime: draft.startTime,
+    exercises: List<WorkoutExercise>.from(draft.exercises),
+  );
 }
