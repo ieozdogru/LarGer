@@ -61,6 +61,25 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
     return true;
   }
 
+  bool replaceExercise(int exerciseIndex, Exercise exercise) {
+    if (state == null) return false;
+    final alreadyThere = state!.exercises.asMap().entries.any(
+      (entry) =>
+          entry.key != exerciseIndex && entry.value.exerciseId == exercise.id,
+    );
+    if (alreadyThere) return false;
+
+    final exercises = List<WorkoutExercise>.from(state!.exercises);
+    final current = exercises[exerciseIndex];
+    exercises[exerciseIndex] = WorkoutExercise()
+      ..exerciseId = exercise.id
+      ..exerciseName = exercise.name
+      ..sets = current.sets
+      ..notes = current.notes;
+    state = state!.copyWith(exercises: exercises);
+    return true;
+  }
+
   void addSet(int exerciseIndex) {
     if (state == null) return;
     final exercises = List<WorkoutExercise>.from(state!.exercises);
