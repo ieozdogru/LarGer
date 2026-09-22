@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:larger/providers/calorie_target_provider.dart';
 import 'package:larger/providers/exercise_provider.dart';
 import 'package:larger/providers/food_provider.dart';
 import 'package:larger/providers/history_provider.dart';
@@ -155,7 +156,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             title: const Text('Edit Height (cm)'),
             content: TextField(
               controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: InputDecoration(
                 hintText: 'e.g. 175.0',
                 errorText: errorText,
@@ -198,7 +201,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             title: const Text('Log Body Weight (kg)'),
             content: TextField(
               controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: InputDecoration(
                 hintText: 'e.g. 80.5',
                 errorText: errorText,
@@ -269,9 +274,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         final query = textEditingValue.text.toLowerCase();
                         if (query.isEmpty) return tracked;
                         return tracked.where(
-                          (option) => option.exerciseName
-                              .toLowerCase()
-                              .contains(query),
+                          (option) =>
+                              option.exerciseName.toLowerCase().contains(query),
                         );
                       },
                       onSelected: _selectTrackedExercise,
@@ -325,7 +329,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     ),
                                     subtitle: Text(
                                       'Last: ${DateFormat('MMM d, yyyy').format(option.lastPerformed)}',
-                                      style: const TextStyle(color: Colors.grey),
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                      ),
                                     ),
                                     onTap: () => onSelected(option),
                                   );
@@ -607,6 +613,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               );
             }),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: AppTheme.accentRed),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: () {
+                ref.read(calorieSettingsProvider).resetWelcome();
+              },
+              child: const Text('Show welcome screen'),
+            ),
           ],
         ),
       ),
@@ -622,11 +640,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ref.invalidate(bodyWeightProvider);
     ref.invalidate(heightProvider);
     ref.invalidate(foodEntriesProvider);
+    ref.invalidate(calorieProfileProvider);
+    ref.invalidate(calorieMemoryProvider);
     if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Seeded ${tier.label} sample data')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Seeded ${tier.label} sample data')));
   }
 
   void _confirmImport() {

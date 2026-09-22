@@ -14,12 +14,14 @@ class FoodDayTotals {
     this.proteinG = 0,
     this.carbsG = 0,
     this.fatG = 0,
+    this.hasAllMacros = false,
   });
 
   final double calories;
   final double proteinG;
   final double carbsG;
   final double fatG;
+  final bool hasAllMacros;
 }
 
 final foodEntriesProvider = FutureProvider<List<FoodEntry>>((ref) async {
@@ -42,26 +44,39 @@ final foodEntriesForDayProvider =
 
 final foodDayTotalsProvider =
     Provider.family<AsyncValue<FoodDayTotals>, DateTime>((ref, day) {
-      return ref.watch(foodEntriesForDayProvider(normalizeFoodDay(day))).whenData((
-        entries,
-      ) {
-        var calories = 0.0;
-        var protein = 0.0;
-        var carbs = 0.0;
-        var fat = 0.0;
-        for (final entry in entries) {
-          calories += entry.totalCalories ?? 0;
-          protein += entry.totalProteinG ?? 0;
-          carbs += entry.totalCarbsG ?? 0;
-          fat += entry.totalFatG ?? 0;
-        }
-        return FoodDayTotals(
-          calories: calories,
-          proteinG: protein,
-          carbsG: carbs,
-          fatG: fat,
-        );
-      });
+      return ref
+          .watch(foodEntriesForDayProvider(normalizeFoodDay(day)))
+          .whenData((entries) {
+            var calories = 0.0;
+            var protein = 0.0;
+            var carbs = 0.0;
+            var fat = 0.0;
+            var sawProtein = false;
+            var sawCarbs = false;
+            var sawFat = false;
+            for (final entry in entries) {
+              calories += entry.totalCalories ?? 0;
+              if (entry.totalProteinG != null) {
+                protein += entry.totalProteinG!;
+                sawProtein = true;
+              }
+              if (entry.totalCarbsG != null) {
+                carbs += entry.totalCarbsG!;
+                sawCarbs = true;
+              }
+              if (entry.totalFatG != null) {
+                fat += entry.totalFatG!;
+                sawFat = true;
+              }
+            }
+            return FoodDayTotals(
+              calories: calories,
+              proteinG: protein,
+              carbsG: carbs,
+              fatG: fat,
+              hasAllMacros: sawProtein && sawCarbs && sawFat,
+            );
+          });
     });
 
 final foodDaysWithEntriesProvider = Provider<AsyncValue<Set<DateTime>>>((ref) {

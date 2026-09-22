@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:larger/models/models.dart';
+import 'package:larger/providers/calorie_target_provider.dart';
 import 'package:larger/providers/food_provider.dart';
+import 'package:larger/services/calorie_intake.dart';
 import 'package:larger/theme/app_theme.dart';
 
 class FoodEntryReviewScreen extends ConsumerStatefulWidget {
@@ -196,6 +198,23 @@ class _FoodEntryReviewScreenState extends ConsumerState<FoodEntryReviewScreen> {
     final protein = _parseOptional(_proteinController.text);
     final carbs = _parseOptional(_carbsController.text);
     final fat = _parseOptional(_fatController.text);
+    final target = ref
+        .watch(calorieTargetProvider)
+        .asData
+        ?.value
+        .resolution
+        ?.targetKcal;
+    final loggedCalories = calories == null ? null : calories * servings;
+    final dayPercent = loggedCalories == null || target == null
+        ? null
+        : percentOfTarget(amount: loggedCalories, target: target);
+    final share = protein == null || carbs == null || fat == null
+        ? null
+        : macroCalorieShare(
+            proteinG: protein * servings,
+            carbsG: carbs * servings,
+            fatG: fat * servings,
+          );
 
     return Scaffold(
       appBar: AppBar(title: Text(isEdit ? 'EDIT FOOD' : 'LOG FOOD')),
@@ -302,6 +321,10 @@ class _FoodEntryReviewScreenState extends ConsumerState<FoodEntryReviewScreen> {
                         pretty: _pretty,
                       ),
                     ],
+                    if (dayPercent != null || share != null) ...[
+                      const SizedBox(height: 16),
+                      _EntryShare(dayPercent: dayPercent, share: share),
+                    ],
                   ],
                 ),
               ),
@@ -406,9 +429,7 @@ class _ServingsStepper extends StatelessWidget {
               FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
             ],
             style: Theme.of(context).textTheme.headlineMedium,
-            decoration: const InputDecoration(
-              labelText: 'Servings eaten',
-            ),
+            decoration: const InputDecoration(labelText: 'Servings eaten'),
             validator: validator,
           ),
         ),
@@ -464,9 +485,7 @@ class _MacroField extends StatelessWidget {
       controller: controller,
       textAlign: TextAlign.center,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-      ],
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
       style: emphasized
           ? Theme.of(context).textTheme.headlineLarge
           : Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 22),
@@ -475,6 +494,43 @@ class _MacroField extends StatelessWidget {
         floatingLabelAlignment: FloatingLabelAlignment.center,
       ),
       validator: validator,
+    );
+  }
+}
+
+class _EntryShare extends StatelessWidget {
+  const _EntryShare({required this.dayPercent, required this.share});
+
+  final int? dayPercent;
+  final MacroCalorieShare? share;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          if (dayPercent != null)
+            Text(
+              '$dayPercent% of daily calories',
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontSize: 22),
+            ),
+          if (share != null) ...[
+            if (dayPercent != null) const SizedBox(height: 8),
+            Text(
+              'Protein ${share!.proteinPercent}%   Carbs ${share!.carbsPercent}%   Fat ${share!.fatPercent}%',
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

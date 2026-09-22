@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:larger/models/models.dart';
+import 'package:larger/providers/calorie_target_provider.dart';
+import 'package:larger/services/calorie_intake.dart';
 
 /// Debug sample-data personas for verifying Today suggestions.
 enum SampleDataTier {
@@ -90,13 +92,18 @@ Future<void> seedDevSampleData({required SampleDataTier tier}) async {
   final sessionsBox = Hive.box<WorkoutSession>('sessions');
   final routinesBox = Hive.box<Routine>('routines');
   final weightBox = Hive.box<BodyWeightLog>('bodyWeightLogs');
+  final foodBox = Hive.box<FoodEntry>('foodEntries');
   final settings = Hive.box('settings');
   final now = DateTime.now();
 
   await sessionsBox.clear();
   await routinesBox.clear();
   await weightBox.clear();
+  await foodBox.clear();
   await settings.delete('height');
+  for (final key in calorieSettingKeys) {
+    await settings.delete(key);
+  }
 
   await settings.put(SampleDataTier.settingsKey, tier.storageValue);
 
@@ -106,12 +113,7 @@ Future<void> seedDevSampleData({required SampleDataTier tier}) async {
   }
 
   Future<void> putWeights() async {
-    for (final entry in [
-      (21, 82.0),
-      (14, 81.4),
-      (7, 81.0),
-      (1, 80.6),
-    ]) {
+    for (final entry in [(21, 82.0), (14, 81.4), (7, 81.0), (1, 80.6)]) {
       final log = BodyWeightLog(
         weight: entry.$2,
         date: now.subtract(Duration(days: entry.$1)),
@@ -119,6 +121,136 @@ Future<void> seedDevSampleData({required SampleDataTier tier}) async {
       await weightBox.put(log.id, log);
     }
     await settings.put('height', 178.0);
+  }
+
+  Future<void> putFood() async {
+    DateTime at(int daysAgo, int hour) {
+      final day = DateTime(now.year, now.month, now.day - daysAgo, hour);
+      return day;
+    }
+
+    final entries = [
+      FoodEntry(
+        name: 'Oats',
+        meal: 'breakfast',
+        loggedAt: at(0, 8),
+        servingLabel: '80 g',
+        calories: 300,
+        proteinG: 10,
+        carbsG: 54,
+        fatG: 6,
+      ),
+      FoodEntry(
+        name: 'Eggs',
+        meal: 'breakfast',
+        loggedAt: at(0, 8),
+        servingLabel: '1 egg',
+        servings: 2,
+        calories: 70,
+        proteinG: 6,
+        carbsG: 0,
+        fatG: 5,
+      ),
+      FoodEntry(
+        name: 'Chicken breast',
+        meal: 'lunch',
+        loggedAt: at(0, 13),
+        servingLabel: '150 g',
+        calories: 250,
+        proteinG: 46,
+        carbsG: 0,
+        fatG: 5,
+      ),
+      FoodEntry(
+        name: 'Rice',
+        meal: 'lunch',
+        loggedAt: at(0, 13),
+        servingLabel: '200 g cooked',
+        calories: 260,
+        proteinG: 5,
+        carbsG: 56,
+        fatG: 1,
+      ),
+      FoodEntry(
+        name: 'Greek yogurt',
+        meal: 'snack',
+        loggedAt: at(0, 16),
+        servingLabel: '170 g',
+        calories: 100,
+        proteinG: 17,
+        carbsG: 6,
+        fatG: 0,
+      ),
+      FoodEntry(
+        name: 'Salmon',
+        meal: 'dinner',
+        loggedAt: at(0, 19),
+        servingLabel: '180 g',
+        calories: 370,
+        proteinG: 40,
+        carbsG: 0,
+        fatG: 22,
+      ),
+      FoodEntry(
+        name: 'Potatoes',
+        meal: 'dinner',
+        loggedAt: at(0, 19),
+        servingLabel: '250 g',
+        calories: 215,
+        proteinG: 5,
+        carbsG: 47,
+        fatG: 0,
+      ),
+      FoodEntry(
+        name: 'Turkey sandwich',
+        meal: 'lunch',
+        loggedAt: at(1, 13),
+        servingLabel: '1 sandwich',
+        calories: 450,
+        proteinG: 32,
+        carbsG: 42,
+        fatG: 14,
+      ),
+      FoodEntry(
+        name: 'Pasta',
+        meal: 'dinner',
+        loggedAt: at(1, 19),
+        servingLabel: '1 plate',
+        calories: 620,
+        proteinG: 28,
+        carbsG: 80,
+        fatG: 18,
+      ),
+      FoodEntry(
+        name: 'Yogurt and berries',
+        meal: 'breakfast',
+        loggedAt: at(2, 8),
+        servingLabel: '1 bowl',
+        calories: 220,
+        proteinG: 18,
+        carbsG: 24,
+        fatG: 4,
+      ),
+      FoodEntry(
+        name: 'Protein bar',
+        meal: 'snack',
+        loggedAt: at(2, 16),
+        servingLabel: '1 bar',
+        calories: 200,
+        proteinG: 20,
+        carbsG: 22,
+        fatG: 7,
+      ),
+    ];
+
+    for (final entry in entries) {
+      await foodBox.put(entry.id, entry);
+    }
+
+    await settings.put(calorieSexKey, BiologicalSex.male.name);
+    await settings.put(calorieAgeKey, 30);
+    await settings.put(calorieActivityKey, ActivityLevel.moderatelyActive.name);
+    await settings.put(calorieGoalKey, CalorieGoal.maintain.name);
   }
 
   if (tier == SampleDataTier.intermediate) {
@@ -164,7 +296,8 @@ Future<void> seedDevSampleData({required SampleDataTier tier}) async {
           workoutExercise(ohp, sets: [(8, 42.5), (6, 45), (5, 47.5)]),
           workoutExercise(row, sets: [(8, 52.5), (6, 55), (5, 57.5)]),
         ]
-        ..totalVolume = 62.5 * 8 +
+        ..totalVolume =
+            62.5 * 8 +
             67.5 * 6 +
             70 * 5 +
             42.5 * 8 +
@@ -179,6 +312,7 @@ Future<void> seedDevSampleData({required SampleDataTier tier}) async {
       await sessionsBox.put(session.id, session);
     }
     await putWeights();
+    await putFood();
     return;
   }
 
@@ -321,7 +455,8 @@ Future<void> seedDevSampleData({required SampleDataTier tier}) async {
         workoutExercise(lateral, sets: [(12, 10), (12, 10), (10, 12)]),
         workoutExercise(triceps, sets: [(12, 25), (10, 27.5), (10, 27.5)]),
       ]
-      ..totalVolume = 80 * 5 +
+      ..totalVolume =
+          80 * 5 +
           82.5 * 5 +
           85 * 3 +
           55 * 8 * 2 +
@@ -345,7 +480,8 @@ Future<void> seedDevSampleData({required SampleDataTier tier}) async {
         workoutExercise(facePull, sets: [(15, 20), (15, 20), (12, 22.5)]),
         workoutExercise(curl, sets: [(10, 30), (8, 32.5), (8, 32.5)]),
       ]
-      ..totalVolume = 140 * 5 * 2 +
+      ..totalVolume =
+          140 * 5 * 2 +
           150 * 3 +
           60 * 8 * 2 +
           65 * 6 +
@@ -366,7 +502,8 @@ Future<void> seedDevSampleData({required SampleDataTier tier}) async {
         workoutExercise(dbShoulder, sets: [(10, 22.5), (8, 25), (8, 25)]),
         workoutExercise(hammer, sets: [(10, 16), (10, 16), (8, 18)]),
       ]
-      ..totalVolume = 70 * 8 +
+      ..totalVolume =
+          70 * 8 +
           75 * 6 +
           77.5 * 5 +
           55 * 8 * 2 +
@@ -387,7 +524,8 @@ Future<void> seedDevSampleData({required SampleDataTier tier}) async {
         workoutExercise(legCurl, sets: [(12, 40), (10, 42.5), (10, 42.5)]),
         workoutExercise(calf, sets: [(12, 60), (12, 60), (10, 70)]),
       ]
-      ..totalVolume = 100 * 5 +
+      ..totalVolume =
+          100 * 5 +
           105 * 5 +
           110 * 5 +
           80 * 8 * 2 +
@@ -409,7 +547,8 @@ Future<void> seedDevSampleData({required SampleDataTier tier}) async {
         workoutExercise(dips, sets: [(8, 0), (8, 0), (6, 5)]),
         workoutExercise(skulls, sets: [(10, 30), (10, 30), (8, 32.5)]),
       ]
-      ..totalVolume = 70 * 8 +
+      ..totalVolume =
+          70 * 8 +
           75 * 6 +
           77.5 * 5 +
           50 * 8 * 2 +
@@ -424,4 +563,5 @@ Future<void> seedDevSampleData({required SampleDataTier tier}) async {
     await sessionsBox.put(session.id, session);
   }
   await putWeights();
+  await putFood();
 }

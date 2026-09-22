@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:larger/models/models.dart';
+import 'package:larger/providers/calorie_target_provider.dart';
 import 'package:larger/services/dev_sample_data.dart';
 
 import '../helpers/hive_test_setup.dart';
@@ -71,6 +72,8 @@ void main() {
 
     expect(Hive.box<Routine>('routines').isEmpty, isTrue);
     expect(Hive.box<WorkoutSession>('sessions').isEmpty, isTrue);
+    expect(Hive.box<FoodEntry>('foodEntries').isEmpty, isTrue);
+    expect(Hive.box('settings').containsKey(calorieSexKey), isFalse);
     expect(
       Hive.box('settings').get(SampleDataTier.settingsKey),
       SampleDataTier.beginner.storageValue,
@@ -87,6 +90,18 @@ void main() {
 
     final ids = routines.first.exercises.map((e) => e.exerciseId).toSet();
     expect(ids, hasLength(3));
+
+    final foods = Hive.box<FoodEntry>('foodEntries').values.toList();
+    final today = DateTime.now();
+    final todayFoods = foods.where((entry) {
+      return entry.loggedAt.year == today.year &&
+          entry.loggedAt.month == today.month &&
+          entry.loggedAt.day == today.day;
+    });
+    expect(todayFoods, isNotEmpty);
+    expect(todayFoods.every((entry) => entry.calories != null), isTrue);
+    expect(Hive.box('settings').get(calorieSexKey), 'male');
+    expect(Hive.box('settings').get(calorieGoalKey), 'maintain');
   });
 
   test('expert tier has 3+ routines and 26+ distinct exercises', () async {
@@ -100,6 +115,10 @@ void main() {
       ids.addAll(routine.exercises.map((e) => e.exerciseId));
     }
     expect(ids.length, greaterThanOrEqualTo(26));
-    expect(Hive.box<WorkoutSession>('sessions').length, greaterThanOrEqualTo(3));
+    expect(
+      Hive.box<WorkoutSession>('sessions').length,
+      greaterThanOrEqualTo(3),
+    );
+    expect(Hive.box<FoodEntry>('foodEntries').isNotEmpty, isTrue);
   });
 }

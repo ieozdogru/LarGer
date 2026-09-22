@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:larger/models/models.dart';
+import 'package:larger/providers/calorie_target_provider.dart';
 import 'package:larger/providers/food_provider.dart';
+import 'package:larger/screens/calorie_target_screen.dart';
 import 'package:larger/screens/food_entry_review_screen.dart';
+import 'package:larger/services/calorie_intake.dart';
 import 'package:larger/services/nutrition_label_parser.dart';
 import 'package:larger/services/nutrition_ocr_service.dart';
 import 'package:larger/theme/app_theme.dart';
@@ -43,7 +46,9 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
       if (!mounted) return;
       if (text == null || text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No nutrition text found. Add it manually.')),
+          const SnackBar(
+            content: Text('No nutrition text found. Add it manually.'),
+          ),
         );
         return;
       }
@@ -65,9 +70,9 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not scan label: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not scan label: $error')));
     }
   }
 
@@ -113,11 +118,18 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
     );
   }
 
+  void _openCalorieTarget() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CalorieTargetScreen()));
+  }
+
   @override
   Widget build(BuildContext context) {
     final daysWithFood = ref.watch(foodDaysWithEntriesProvider);
     final dayEntries = ref.watch(foodEntriesForDayProvider(_selectedDay));
     final totals = ref.watch(foodDayTotalsProvider(_selectedDay));
+    final target = ref.watch(calorieTargetProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('FOOD')),
@@ -217,7 +229,15 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: totals.when(
-              data: (value) => _DayTotalsBar(totals: value),
+              data: (value) => target.when(
+                data: (view) => _DayIntakeCard(
+                  totals: value,
+                  view: view,
+                  onEditTarget: _openCalorieTarget,
+                ),
+                loading: () => const LinearProgressIndicator(),
+                error: (error, _) => Text('Could not load target: $error'),
+              ),
               loading: () => const LinearProgressIndicator(),
               error: (error, _) => Text('Could not load totals: $error'),
             ),
@@ -253,50 +273,243 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
   }
 }
 
-class _DayTotalsBar extends StatelessWidget {
-  const _DayTotalsBar({required this.totals});
+class _DayIntakeCard extends StatelessWidget {
+  const _DayIntakeCard({
+    required this.totals,
+    required this.view,
+    required this.onEditTarget,
+  });
 
   final FoodDayTotals totals;
+  final CalorieTargetView view;
+  final VoidCallback onEditTarget;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final eaten = totals.calories.round();
+    final resolution = view.resolution;
+    final share = totals.hasAllMacros
+        ? macroCalorieShare(
+            proteinG: totals.proteinG,
+            carbsG: totals.carbsG,
+            fatG: totals.fatG,
+          )
+        : null;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (resolution == null)
+              _MissingTarget(
+                gap: view.gap,
+                eaten: eaten,
+                onEditTarget: onEditTarget,
+              )
+            else
+              _CalorieProgress(
+                eaten: eaten,
+                resolution: resolution,
+                onEditTarget: onEditTarget,
+              ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _MacroPercent(
+                    label: 'Protein',
+                    grams: totals.proteinG,
+                    percent: share?.proteinPercent,
+                  ),
+                ),
+                Expanded(
+                  child: _MacroPercent(
+                    label: 'Carbs',
+                    grams: totals.carbsG,
+                    percent: share?.carbsPercent,
+                  ),
+                ),
+                Expanded(
+                  child: _MacroPercent(
+                    label: 'Fat',
+                    grams: totals.fatG,
+                    percent: share?.fatPercent,
+                  ),
+                ),
+              ],
+            ),
+            if (share != null) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Percents are each macro\'s share of the calories in what you logged.',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CalorieProgress extends StatelessWidget {
+  const _CalorieProgress({
+    required this.eaten,
+    required this.resolution,
+    required this.onEditTarget,
+  });
+
+  final int eaten;
+  final CalorieResolution resolution;
+  final VoidCallback onEditTarget;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = resolution.targetKcal.round();
+    final percent = percentOfTarget(
+      amount: eaten.toDouble(),
+      target: target.toDouble(),
+    );
+    final progress = target <= 0 ? 0.0 : (eaten / target).clamp(0.0, 1.0);
+    final diff = target - eaten;
+    final status = diff > 0
+        ? '$diff kcal left'
+        : diff < 0
+        ? '${-diff} kcal over'
+        : 'On target';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _TotalChip(label: 'kcal', value: totals.calories),
-        _TotalChip(label: 'P', value: totals.proteinG, suffix: 'g'),
-        _TotalChip(label: 'C', value: totals.carbsG, suffix: 'g'),
-        _TotalChip(label: 'F', value: totals.fatG, suffix: 'g'),
+        Text('$percent%', style: Theme.of(context).textTheme.headlineLarge),
+        const SizedBox(height: 2),
+        Text(
+          '$eaten of $target kcal · $status',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 8,
+            backgroundColor: Colors.white12,
+            color: AppTheme.accentRed,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _basisLabel(resolution.basis),
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ),
+            GestureDetector(
+              onTap: onEditTarget,
+              child: const Text(
+                'EDIT',
+                style: TextStyle(
+                  color: AppTheme.accentRed,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
 }
 
-class _TotalChip extends StatelessWidget {
-  const _TotalChip({
-    required this.label,
-    required this.value,
-    this.suffix = '',
+class _MissingTarget extends StatelessWidget {
+  const _MissingTarget({
+    required this.gap,
+    required this.eaten,
+    required this.onEditTarget,
   });
 
-  final String label;
-  final double value;
-  final String suffix;
+  final CalorieTargetGap? gap;
+  final int eaten;
+  final VoidCallback onEditTarget;
 
   @override
   Widget build(BuildContext context) {
-    final shown = value == value.roundToDouble()
-        ? value.toInt().toString()
-        : value.toStringAsFixed(1);
+    final message = gap == CalorieTargetGap.needsWeight
+        ? 'Log your weight on Profile to see this as a percent of your daily calories.'
+        : 'Add your age, sex, and activity to see this as a percent of your daily calories.';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('$eaten kcal', style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 6),
+        Text(message, style: const TextStyle(color: Colors.white70)),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: onEditTarget,
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.accentRed,
+              padding: EdgeInsets.zero,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text('SET DAILY CALORIES'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MacroPercent extends StatelessWidget {
+  const _MacroPercent({
+    required this.label,
+    required this.grams,
+    required this.percent,
+  });
+
+  final String label;
+  final double grams;
+  final int? percent;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = grams == grams.roundToDouble()
+        ? grams.toInt().toString()
+        : grams.toStringAsFixed(1);
     return Column(
       children: [
         Text(
-          '$shown$suffix',
+          percent == null ? '$shown g' : '$percent%',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        if (percent != null)
+          Text(
+            '$shown g',
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
+          ),
       ],
     );
+  }
+}
+
+String _basisLabel(CalorieBasis basis) {
+  switch (basis) {
+    case CalorieBasis.estimated:
+      return 'From your height, weight, age, and activity';
+    case CalorieBasis.adaptive:
+      return 'From your weight trend and the calories you logged';
+    case CalorieBasis.held:
+      return 'Kept the same — a few days this week have no food log';
   }
 }
 
@@ -310,6 +523,12 @@ class _MealSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (entries.isEmpty) return const SizedBox.shrink();
     final title = meal[0].toUpperCase() + meal.substring(1);
+    final target = ref
+        .watch(calorieTargetProvider)
+        .asData
+        ?.value
+        .resolution
+        ?.targetKcal;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -343,10 +562,13 @@ class _MealSection extends ConsumerWidget {
                 subtitle: Text(
                   [
                     if (entry.servingLabel != null) entry.servingLabel,
-                    if (entry.servings != 1)
-                      '${entry.servings} servings',
+                    if (entry.servings != 1) '${entry.servings} servings',
                     if (entry.totalCalories != null)
                       '${_pretty(entry.totalCalories!)} kcal',
+                    if (entry.totalCalories != null &&
+                        target != null &&
+                        target > 0)
+                      '${percentOfTarget(amount: entry.totalCalories!, target: target)}% of daily calories',
                   ].join(' · '),
                 ),
                 trailing: Text(
