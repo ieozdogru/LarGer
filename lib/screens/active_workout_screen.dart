@@ -179,14 +179,23 @@ class ActiveWorkoutScreen extends ConsumerWidget {
                   final session = await ref
                       .read(activeWorkoutProvider.notifier)
                       .finishWorkout();
-                  if (session != null && context.mounted) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            WorkoutSummaryScreen(session: session),
+                  if (!context.mounted) return;
+                  if (session == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Could not save this workout. It is still open.',
+                        ),
                       ),
                     );
+                    return;
                   }
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          WorkoutSummaryScreen(session: session),
+                    ),
+                  );
                 },
                 child: const Text('FINISH WORKOUT'),
               ),
