@@ -444,3 +444,20 @@ int percentOfTarget({required double amount, required double target}) {
   if (whole <= 0) return 0;
   return ((amount.round() / whole) * 100).round();
 }
+
+/// Starting protein goal: 30% of the calorie target, at 4 kcal per gram.
+int defaultProteinGoalG(double targetKcal) {
+  if (targetKcal <= 0) return 0;
+  return (targetKcal * 0.30 / 4).round();
+}
+
+/// Starting carb goal: 45% of the calorie target, at 4 kcal per gram.
+int defaultCarbGoalG(double targetKcal) {
+  if (targetKcal <= 0) return 0;
+  return (targetKcal * 0.45 / 4).round();
+}
+
+int resolvedGramGoal({required int? stored, required int fallback}) {
+  if (stored != null && stored > 0) return stored;
+  return fallback;
+}

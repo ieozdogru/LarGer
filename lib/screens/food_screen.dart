@@ -10,6 +10,8 @@ import 'package:larger/services/calorie_intake.dart';
 import 'package:larger/services/nutrition_label_parser.dart';
 import 'package:larger/services/nutrition_ocr_service.dart';
 import 'package:larger/theme/app_theme.dart';
+import 'package:larger/widgets/complication_ring.dart';
+import 'package:larger/widgets/profile_button.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 class FoodScreen extends ConsumerStatefulWidget {
@@ -130,9 +132,10 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
     final dayEntries = ref.watch(foodEntriesForDayProvider(_selectedDay));
     final totals = ref.watch(foodDayTotalsProvider(_selectedDay));
     final target = ref.watch(calorieTargetProvider);
+    final profile = ref.watch(calorieProfileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('FOOD')),
+      appBar: AppBar(leading: const ProfileButton(), title: const Text('FOOD')),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddOptions,
         backgroundColor: AppTheme.accentRed,
@@ -233,6 +236,7 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
                 data: (view) => _DayIntakeCard(
                   totals: value,
                   view: view,
+                  profile: profile,
                   onEditTarget: _openCalorieTarget,
                 ),
                 loading: () => const LinearProgressIndicator(),
@@ -277,77 +281,43 @@ class _DayIntakeCard extends StatelessWidget {
   const _DayIntakeCard({
     required this.totals,
     required this.view,
+    required this.profile,
     required this.onEditTarget,
   });
 
   final FoodDayTotals totals;
   final CalorieTargetView view;
+  final CalorieProfile profile;
   final VoidCallback onEditTarget;
 
   @override
   Widget build(BuildContext context) {
     final eaten = totals.calories.round();
     final resolution = view.resolution;
-    final share = totals.hasAllMacros
-        ? macroCalorieShare(
-            proteinG: totals.proteinG,
-            carbsG: totals.carbsG,
-            fatG: totals.fatG,
-          )
-        : null;
 
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+        padding: const EdgeInsets.fromLTRB(8, 16, 8, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (resolution == null)
-              _MissingTarget(
-                gap: view.gap,
-                eaten: eaten,
-                onEditTarget: onEditTarget,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: _MissingTarget(
+                  gap: view.gap,
+                  eaten: eaten,
+                  onEditTarget: onEditTarget,
+                ),
               )
             else
-              _CalorieProgress(
-                eaten: eaten,
+              _GoalRings(
+                totals: totals,
                 resolution: resolution,
+                profile: profile,
                 onEditTarget: onEditTarget,
               ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _MacroPercent(
-                    label: 'Protein',
-                    grams: totals.proteinG,
-                    percent: share?.proteinPercent,
-                  ),
-                ),
-                Expanded(
-                  child: _MacroPercent(
-                    label: 'Carbs',
-                    grams: totals.carbsG,
-                    percent: share?.carbsPercent,
-                  ),
-                ),
-                Expanded(
-                  child: _MacroPercent(
-                    label: 'Fat',
-                    grams: totals.fatG,
-                    percent: share?.fatPercent,
-                  ),
-                ),
-              ],
-            ),
-            if (share != null) ...[
-              const SizedBox(height: 8),
-              const Text(
-                'Percents are each macro\'s share of the calories in what you logged.',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-            ],
           ],
         ),
       ),
@@ -355,72 +325,65 @@ class _DayIntakeCard extends StatelessWidget {
   }
 }
 
-class _CalorieProgress extends StatelessWidget {
-  const _CalorieProgress({
-    required this.eaten,
+class _GoalRings extends StatelessWidget {
+  const _GoalRings({
+    required this.totals,
     required this.resolution,
+    required this.profile,
     required this.onEditTarget,
   });
 
-  final int eaten;
+  final FoodDayTotals totals;
   final CalorieResolution resolution;
+  final CalorieProfile profile;
   final VoidCallback onEditTarget;
 
   @override
   Widget build(BuildContext context) {
     final target = resolution.targetKcal.round();
-    final percent = percentOfTarget(
-      amount: eaten.toDouble(),
-      target: target.toDouble(),
+    final proteinGoal = resolvedGramGoal(
+      stored: profile.proteinGoalG,
+      fallback: defaultProteinGoalG(target.toDouble()),
     );
-    final progress = target <= 0 ? 0.0 : (eaten / target).clamp(0.0, 1.0);
-    final diff = target - eaten;
-    final status = diff > 0
-        ? '$diff kcal left'
-        : diff < 0
-        ? '${-diff} kcal over'
-        : 'On target';
+    final carbGoal = resolvedGramGoal(
+      stored: profile.carbGoalG,
+      fallback: defaultCarbGoalG(target.toDouble()),
+    );
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('$percent%', style: Theme.of(context).textTheme.headlineLarge),
-        const SizedBox(height: 2),
-        Text(
-          '$eaten of $target kcal · $status',
-          style: const TextStyle(color: Colors.white70),
+        DailyComplications(
+          caloriesEaten: totals.calories.round(),
+          calorieTarget: target,
+          proteinEaten: totals.proteinG.round(),
+          proteinGoal: proteinGoal,
+          carbsEaten: totals.carbsG.round(),
+          carbGoal: carbGoal,
         ),
         const SizedBox(height: 10),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(99),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 8,
-            backgroundColor: Colors.white12,
-            color: AppTheme.accentRed,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                _basisLabel(resolution.basis),
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-            ),
-            GestureDetector(
-              onTap: onEditTarget,
-              child: const Text(
-                'EDIT',
-                style: TextStyle(
-                  color: AppTheme.accentRed,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _basisLabel(resolution.basis),
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ),
-            ),
-          ],
+              GestureDetector(
+                onTap: onEditTarget,
+                child: const Text(
+                  'EDIT',
+                  style: TextStyle(
+                    color: AppTheme.accentRed,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -464,39 +427,6 @@ class _MissingTarget extends StatelessWidget {
             child: const Text('SET DAILY CALORIES'),
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _MacroPercent extends StatelessWidget {
-  const _MacroPercent({
-    required this.label,
-    required this.grams,
-    required this.percent,
-  });
-
-  final String label;
-  final double grams;
-  final int? percent;
-
-  @override
-  Widget build(BuildContext context) {
-    final shown = grams == grams.roundToDouble()
-        ? grams.toInt().toString()
-        : grams.toStringAsFixed(1);
-    return Column(
-      children: [
-        Text(
-          percent == null ? '$shown g' : '$percent%',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        if (percent != null)
-          Text(
-            '$shown g',
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
-          ),
       ],
     );
   }

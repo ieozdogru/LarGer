@@ -10,6 +10,8 @@ const calorieAgeKey = 'calorieAge';
 const calorieActivityKey = 'calorieActivity';
 const calorieBodyFatKey = 'calorieBodyFat';
 const calorieGoalKey = 'calorieGoal';
+const calorieProteinGoalKey = 'calorieProteinGoal';
+const calorieCarbGoalKey = 'calorieCarbGoal';
 const calorieLastAdaptiveTdeeKey = 'calorieLastAdaptiveTdee';
 const calorieClampedTargetKey = 'calorieClampedTarget';
 const calorieTargetUpdatedAtKey = 'calorieTargetUpdatedAt';
@@ -22,6 +24,8 @@ const calorieSettingKeys = <String>[
   calorieActivityKey,
   calorieBodyFatKey,
   calorieGoalKey,
+  calorieProteinGoalKey,
+  calorieCarbGoalKey,
   calorieLastAdaptiveTdeeKey,
   calorieClampedTargetKey,
   calorieTargetUpdatedAtKey,
@@ -35,6 +39,8 @@ class CalorieProfile {
     this.activity,
     this.bodyFatPercent,
     this.goal,
+    this.proteinGoalG,
+    this.carbGoalG,
   });
 
   final BiologicalSex? sex;
@@ -42,6 +48,8 @@ class CalorieProfile {
   final ActivityLevel? activity;
   final double? bodyFatPercent;
   final CalorieGoal? goal;
+  final int? proteinGoalG;
+  final int? carbGoalG;
 
   bool get isComplete =>
       sex != null && ageYears != null && activity != null && goal != null;
@@ -88,6 +96,8 @@ final calorieProfileProvider = Provider<CalorieProfile>((ref) {
     activity: ActivityLevel.parse(box.get(calorieActivityKey) as String?),
     bodyFatPercent: _asDouble(box.get(calorieBodyFatKey)),
     goal: CalorieGoal.parse(box.get(calorieGoalKey) as String?),
+    proteinGoalG: _asInt(box.get(calorieProteinGoalKey)),
+    carbGoalG: _asInt(box.get(calorieCarbGoalKey)),
   );
 });
 
@@ -177,6 +187,13 @@ class CalorieSettingsNotifier {
       await box.put(calorieBodyFatKey, bodyFatPercent);
     }
     await box.put(calorieGoalKey, goal.name);
+    ref.invalidate(calorieProfileProvider);
+  }
+
+  Future<void> saveMacroGoals({int? proteinG, int? carbsG}) async {
+    final box = Hive.box('settings');
+    await _putOrDelete(box, calorieProteinGoalKey, proteinG);
+    await _putOrDelete(box, calorieCarbGoalKey, carbsG);
     ref.invalidate(calorieProfileProvider);
   }
 

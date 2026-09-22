@@ -235,6 +235,14 @@ void main() {
     expect(percentOfTarget(amount: 1240, target: 2200), 56);
     expect(percentOfTarget(amount: 10, target: 0), 0);
   });
+
+  test('protein and carb goals default from the calorie target', () {
+    expect(defaultProteinGoalG(2000), 150);
+    expect(defaultCarbGoalG(2000), 225);
+    expect(resolvedGramGoal(stored: 160, fallback: 150), 160);
+    expect(resolvedGramGoal(stored: null, fallback: 150), 150);
+    expect(defaultProteinGoalG(0), 0);
+  });
 }
 
 CalorieResolution _resolveAdaptive({

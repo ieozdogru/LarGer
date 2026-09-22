@@ -17,11 +17,14 @@ class CalorieTargetScreen extends ConsumerStatefulWidget {
 class _CalorieTargetScreenState extends ConsumerState<CalorieTargetScreen> {
   final _ageController = TextEditingController();
   final _bodyFatController = TextEditingController();
+  final _proteinGoalController = TextEditingController();
+  final _carbGoalController = TextEditingController();
   BiologicalSex? _sex;
   ActivityLevel? _activity;
   CalorieGoal? _goal;
   String? _ageError;
   String? _bodyFatError;
+  String? _macroError;
 
   @override
   void initState() {
@@ -39,12 +42,20 @@ class _CalorieTargetScreenState extends ConsumerState<CalorieTargetScreen> {
           ? bodyFat.toInt().toString()
           : bodyFat.toString();
     }
+    if (profile.proteinGoalG != null) {
+      _proteinGoalController.text = profile.proteinGoalG.toString();
+    }
+    if (profile.carbGoalG != null) {
+      _carbGoalController.text = profile.carbGoalG.toString();
+    }
   }
 
   @override
   void dispose() {
     _ageController.dispose();
     _bodyFatController.dispose();
+    _proteinGoalController.dispose();
+    _carbGoalController.dispose();
     super.dispose();
   }
 
@@ -77,12 +88,32 @@ class _CalorieTargetScreenState extends ConsumerState<CalorieTargetScreen> {
     setState(() {
       _ageError = ageError;
       _bodyFatError = bodyFatError;
+      _macroError = _macroGoalError();
     });
     return ageError == null &&
         bodyFatError == null &&
+        _macroError == null &&
         _sex != null &&
         _activity != null &&
         _goal != null;
+  }
+
+  int? _parseGoal(TextEditingController controller) {
+    final raw = controller.text.trim();
+    if (raw.isEmpty) return null;
+    return int.tryParse(raw);
+  }
+
+  String? _macroGoalError() {
+    for (final controller in [_proteinGoalController, _carbGoalController]) {
+      final raw = controller.text.trim();
+      if (raw.isEmpty) continue;
+      final value = int.tryParse(raw);
+      if (value == null || value <= 0 || value > 800) {
+        return 'Enter goals from 1 to 800 g, or leave them blank';
+      }
+    }
+    return null;
   }
 
   Future<void> _save() async {
@@ -95,6 +126,12 @@ class _CalorieTargetScreenState extends ConsumerState<CalorieTargetScreen> {
           activity: _activity!,
           bodyFatPercent: _parseBodyFat(),
           goal: _goal!,
+        );
+    await ref
+        .read(calorieSettingsProvider)
+        .saveMacroGoals(
+          proteinG: _parseGoal(_proteinGoalController),
+          carbsG: _parseGoal(_carbGoalController),
         );
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -225,6 +262,51 @@ class _CalorieTargetScreenState extends ConsumerState<CalorieTargetScreen> {
                       selected: _goal == goal,
                       onTap: () => setState(() => _goal = goal),
                     ),
+                  const SizedBox(height: 24),
+                  const _SectionLabel('PROTEIN AND CARBS'),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Daily goals in grams. Leave blank to use 30% of calories for protein and 45% for carbs.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white70,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _proteinGoalController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) => setState(() => _macroError = null),
+                          decoration: InputDecoration(
+                            labelText: 'Protein',
+                            suffixText: 'g',
+                            errorText: _macroError,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _carbGoalController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) => setState(() => _macroError = null),
+                          decoration: const InputDecoration(
+                            labelText: 'Carbs',
+                            suffixText: 'g',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 24),
                   _EstimateCard(estimate: estimate),
                 ],
