@@ -375,6 +375,7 @@ class _ActiveExerciseCard extends ConsumerWidget {
                 ghostSet = prevExercise.sets[setIndex];
               }
               return _ActiveSetRow(
+                key: ValueKey(set.id),
                 exerciseIndex: exerciseIndex,
                 setIndex: setIndex,
                 workoutSet: set,
