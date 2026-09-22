@@ -46,8 +46,8 @@ void main() {
     test('addExercise ignores duplicates', () {
       notifier.startWorkout();
       final exercise = Exercise(id: 'ex-1', name: 'Bench', category: 'Chest');
-      notifier.addExercise(exercise);
-      notifier.addExercise(exercise);
+      expect(notifier.addExercise(exercise), isTrue);
+      expect(notifier.addExercise(exercise), isFalse);
 
       expect(container.read(activeWorkoutProvider)!.exercises, hasLength(1));
     });
