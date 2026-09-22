@@ -52,6 +52,25 @@ void main() {
       expect(container.read(activeWorkoutProvider)!.exercises, hasLength(1));
     });
 
+    test('updateSet keeps the set id', () {
+      notifier.startWorkout();
+      notifier.addExercise(Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'));
+      final id = container
+          .read(activeWorkoutProvider)!
+          .exercises
+          .first
+          .sets
+          .first
+          .id;
+
+      notifier.updateSet(0, 0, reps: 8, weight: 60, isCompleted: true);
+
+      expect(
+        container.read(activeWorkoutProvider)!.exercises.first.sets.first.id,
+        id,
+      );
+    });
+
     test('addSet copies previous set values', () {
       notifier.startWorkout();
       notifier.addExercise(Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'));
