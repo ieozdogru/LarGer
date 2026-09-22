@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:larger/models/models.dart';
 import 'package:larger/providers/active_workout_provider.dart';
@@ -424,9 +425,7 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
   void initState() {
     super.initState();
     _weightController = TextEditingController(
-      text: widget.workoutSet.weight == 0
-          ? ''
-          : widget.workoutSet.weight.toString(),
+      text: _formatWeight(widget.workoutSet.weight),
     );
     _repsController = TextEditingController(
       text: widget.workoutSet.reps == 0
@@ -448,7 +447,7 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
             .updateSet(
               widget.exerciseIndex,
               widget.setIndex,
-              weight: double.tryParse(_weightController.text) ?? 0.0,
+              weight: _parseWeight(_weightController.text),
             );
       }
     });
@@ -476,9 +475,7 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
     super.didUpdateWidget(oldWidget);
     if (!_weightFocus.hasFocus &&
         oldWidget.workoutSet.weight != widget.workoutSet.weight) {
-      _weightController.text = widget.workoutSet.weight == 0
-          ? ''
-          : widget.workoutSet.weight.toString();
+      _weightController.text = _formatWeight(widget.workoutSet.weight);
     }
     if (!_repsFocus.hasFocus &&
         oldWidget.workoutSet.reps != widget.workoutSet.reps) {
@@ -513,7 +510,12 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
               child: TextFormField(
                 controller: _weightController,
                 focusNode: _weightFocus,
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                ],
                 textAlign: TextAlign.center,
                 decoration: InputDecoration(
                   hintText: widget.ghostSet != null
@@ -551,7 +553,7 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
                     : Colors.grey,
               ),
               onPressed: () {
-                double weight = double.tryParse(_weightController.text) ?? 0.0;
+                double weight = _parseWeight(_weightController.text);
                 int reps = int.tryParse(_repsController.text) ?? 0;
 
                 if (!widget.workoutSet.isCompleted &&
@@ -560,7 +562,7 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
                     widget.ghostSet != null) {
                   weight = widget.ghostSet!.weight;
                   reps = widget.ghostSet!.reps;
-                  _weightController.text = weight.toString();
+                  _weightController.text = _formatWeight(weight);
                   _repsController.text = reps.toString();
                 }
 
@@ -595,4 +597,16 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
       ),
     );
   }
+}
+
+double _parseWeight(String raw) {
+  final value = raw.trim().replaceAll(',', '.');
+  if (value.isEmpty) return 0;
+  return double.tryParse(value) ?? 0;
+}
+
+String _formatWeight(double weight) {
+  if (weight == 0) return '';
+  if (weight == weight.roundToDouble()) return weight.toInt().toString();
+  return weight.toString();
 }
