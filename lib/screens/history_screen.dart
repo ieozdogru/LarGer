@@ -5,6 +5,7 @@ import 'package:larger/models/models.dart';
 import 'package:larger/providers/history_provider.dart';
 import 'package:larger/theme/app_theme.dart';
 import 'package:larger/widgets/bounce_button.dart';
+import 'package:larger/widgets/page_gradient.dart';
 import 'package:larger/widgets/profile_button.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:larger/screens/edit_workout_screen.dart';
@@ -16,9 +17,11 @@ class HistoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final historyAsyncValue = ref.watch(historyProvider);
 
-    return Scaffold(
+    return GradientPage(
       appBar: AppBar(
-        leading: const ProfileButton(),
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        leading: const ProfileButton(heroTag: 'profile-history'),
         title: const Text('HISTORY'),
       ),
       body: historyAsyncValue.when(

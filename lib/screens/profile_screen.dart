@@ -16,8 +16,28 @@ import 'package:larger/theme/app_theme.dart';
 import 'package:larger/utils/string_extensions.dart';
 import 'package:larger/utils/validators.dart';
 
+/// The icon finishes its move in the first part of the route, then holds.
+RectTween profileIconRectTween(Rect? begin, Rect? end) {
+  return _ArriveThenHoldRectTween(begin: begin, end: end);
+}
+
+class _ArriveThenHoldRectTween extends RectTween {
+  _ArriveThenHoldRectTween({super.begin, super.end});
+
+  @override
+  Rect? lerp(double t) {
+    final travel = (t / 0.42).clamp(0.0, 1.0);
+    return Rect.lerp(begin, end, Curves.easeOutCubic.transform(travel));
+  }
+}
+
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, required this.heroTag, this.entrance});
+
+  final String heroTag;
+
+  /// Route animation. The icon arrives first; the page body follows downward.
+  final Animation<double>? entrance;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -26,28 +46,122 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _selectedExerciseId;
   String? _selectedExerciseName;
+  CurvedAnimation? _drop;
+  CurvedAnimation? _titleFade;
+  CurvedAnimation? _backdrop;
+  Animation<Offset>? _dropOffset;
+
+  @override
+  void initState() {
+    super.initState();
+    final entrance = widget.entrance;
+    if (entrance == null) return;
+    _drop = CurvedAnimation(
+      parent: entrance,
+      curve: const Interval(0.45, 1, curve: Curves.easeOutCubic),
+      reverseCurve: const Interval(0.45, 1, curve: Curves.easeInCubic),
+    );
+    _titleFade = CurvedAnimation(
+      parent: entrance,
+      curve: const Interval(0.32, 0.5, curve: Curves.easeOut),
+      reverseCurve: const Interval(0.32, 0.5, curve: Curves.easeIn),
+    );
+    _backdrop = CurvedAnimation(
+      parent: entrance,
+      curve: const Interval(0.28, 0.48, curve: Curves.easeOut),
+      reverseCurve: const Interval(0.28, 0.48, curve: Curves.easeIn),
+    );
+    _dropOffset = Tween<Offset>(
+      begin: const Offset(0, -1),
+      end: Offset.zero,
+    ).animate(_drop!);
+  }
+
+  @override
+  void dispose() {
+    _drop?.dispose();
+    _titleFade?.dispose();
+    _backdrop?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('PROFILE')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    final entrance = widget.entrance;
+    final drop = _drop;
+    final titleFade = _titleFade;
+    final backdrop = _backdrop;
+
+    Widget title = const Text('PROFILE');
+    if (titleFade != null) {
+      title = FadeTransition(opacity: titleFade, child: title);
+    }
+
+    Widget body = SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildBodyStatsSection(),
+          const SizedBox(height: 20),
+          _buildAnalyticsSection(),
+          const SizedBox(height: 20),
+          _buildBackupSection(),
+          if (kDebugMode) ...[
+            const SizedBox(height: 20),
+            _buildDeveloperSection(),
+          ],
+        ],
+      ),
+    );
+    if (drop != null) {
+      body = ClipRect(
+        child: SlideTransition(
+          position: _dropOffset!,
+          child: FadeTransition(opacity: drop, child: body),
+        ),
+      );
+    }
+
+    final page = Scaffold(
+      backgroundColor: entrance == null
+          ? AppTheme.primaryBackground
+          : Colors.transparent,
+      appBar: AppBar(
+        backgroundColor: entrance == null ? null : Colors.transparent,
+        surfaceTintColor: entrance == null ? null : Colors.transparent,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildBodyStatsSection(),
-            const SizedBox(height: 20),
-            _buildAnalyticsSection(),
-            const SizedBox(height: 20),
-            _buildBackupSection(),
-            if (kDebugMode) ...[
-              const SizedBox(height: 20),
-              _buildDeveloperSection(),
-            ],
+            Hero(
+              tag: widget.heroTag,
+              createRectTween: profileIconRectTween,
+              child: const Material(
+                color: Colors.transparent,
+                child: Icon(Icons.person_outline, size: 24),
+              ),
+            ),
+            const SizedBox(width: 8),
+            title,
           ],
         ),
       ),
+      body: body,
+    );
+
+    if (backdrop == null) return page;
+
+    return Stack(
+      children: [
+        FadeTransition(
+          opacity: backdrop,
+          child: const ColoredBox(
+            color: AppTheme.primaryBackground,
+            child: SizedBox.expand(),
+          ),
+        ),
+        page,
+      ],
     );
   }
 

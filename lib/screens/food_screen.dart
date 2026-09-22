@@ -11,6 +11,7 @@ import 'package:larger/services/nutrition_label_parser.dart';
 import 'package:larger/services/nutrition_ocr_service.dart';
 import 'package:larger/theme/app_theme.dart';
 import 'package:larger/widgets/complication_ring.dart';
+import 'package:larger/widgets/page_gradient.dart';
 import 'package:larger/widgets/profile_button.dart';
 import 'package:table_calendar/table_calendar.dart';
 
@@ -134,8 +135,13 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
     final target = ref.watch(calorieTargetProvider);
     final profile = ref.watch(calorieProfileProvider);
 
-    return Scaffold(
-      appBar: AppBar(leading: const ProfileButton(), title: const Text('FOOD')),
+    return GradientPage(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        leading: const ProfileButton(heroTag: 'profile-food'),
+        title: const Text('FOOD'),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddOptions,
         backgroundColor: AppTheme.accentRed,

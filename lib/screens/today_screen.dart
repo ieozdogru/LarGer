@@ -5,9 +5,9 @@ import 'package:larger/providers/calorie_target_provider.dart';
 import 'package:larger/providers/food_provider.dart';
 import 'package:larger/providers/today_provider.dart';
 import 'package:larger/services/calorie_intake.dart';
-import 'package:larger/theme/app_theme.dart';
 import 'package:larger/widgets/complication_ring.dart';
 import 'package:larger/widgets/expanding_play_start.dart';
+import 'package:larger/widgets/page_gradient.dart';
 import 'package:larger/widgets/profile_button.dart';
 
 class TodayScreen extends ConsumerStatefulWidget {
@@ -75,7 +75,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
     return Scaffold(
       body: Stack(
         children: [
-          const Positioned.fill(child: _TodayBackdrop()),
+          const Positioned.fill(child: PageGradient()),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -85,7 +85,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                   _rise(
                     Row(
                       children: [
-                        const ProfileButton(),
+                        const ProfileButton(heroTag: 'profile-today'),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Column(
@@ -233,28 +233,6 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TodayBackdrop extends StatelessWidget {
-  const _TodayBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppTheme.accentRed.withValues(alpha: 0.18),
-            AppTheme.primaryBackground,
-            AppTheme.primaryBackground,
-          ],
-          stops: const [0, 0.45, 1],
-        ),
       ),
     );
   }
