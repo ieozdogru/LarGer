@@ -21,7 +21,7 @@ class StartWorkoutScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ElevatedButton(
-              onPressed: () => startEmptyWorkout(ref),
+              onPressed: () => startEmptyWorkout(ref, context),
               child: const Text('START EMPTY WORKOUT'),
             ),
             const SizedBox(height: 32),
@@ -36,7 +36,9 @@ class StartWorkoutScreen extends ConsumerWidget {
                 data: (routines) {
                   if (routines.isEmpty) {
                     return const Center(
-                      child: Text('No routines yet. Create one to get started.'),
+                      child: Text(
+                        'No routines yet. Create one to get started.',
+                      ),
                     );
                   }
                   return ListView.builder(
@@ -118,8 +120,7 @@ class StartWorkoutScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     Routine routine,
-  ) =>
-      startRoutineWorkout(ref, routine);
+  ) => startRoutineWorkout(ref, context, routine);
 
   void _confirmDelete(BuildContext context, WidgetRef ref, Routine routine) {
     showDialog(
@@ -140,10 +141,7 @@ class StartWorkoutScreen extends ConsumerWidget {
                     .deleteRoutine(routine.id);
                 Navigator.of(ctx).pop();
               },
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.red),
-              ),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
             ),
           ],
         );

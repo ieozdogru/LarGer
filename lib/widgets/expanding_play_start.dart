@@ -27,9 +27,10 @@ class _ExpandingPlayStartState extends ConsumerState<ExpandingPlayStart>
       vsync: this,
       duration: const Duration(milliseconds: 320),
     );
-    _scale = Tween<double>(begin: 1, end: 1.12).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-    );
+    _scale = Tween<double>(
+      begin: 1,
+      end: 1.12,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
     _menuFade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
   }
 
@@ -101,17 +102,23 @@ class _ExpandingPlayStartState extends ConsumerState<ExpandingPlayStart>
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
                                 maxWidth: 320,
-                                maxHeight: (constraints.maxHeight - 104)
-                                    .clamp(120.0, constraints.maxHeight),
+                                maxHeight: (constraints.maxHeight - 104).clamp(
+                                  120.0,
+                                  constraints.maxHeight,
+                                ),
                               ),
                               child: routinesAsync.when(
                                 data: (routines) => _PlayMenu(
                                   routines: routines,
                                   onStartEmpty: () => _runAndClose(
-                                    () => startEmptyWorkout(ref),
+                                    () => startEmptyWorkout(ref, context),
                                   ),
                                   onStartRoutine: (routine) => _runAndClose(
-                                    () => startRoutineWorkout(ref, routine),
+                                    () => startRoutineWorkout(
+                                      ref,
+                                      context,
+                                      routine,
+                                    ),
                                   ),
                                   onManage: () => _runAndClose(() async {
                                     if (!context.mounted) return;
