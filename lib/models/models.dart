@@ -50,6 +50,13 @@ class WorkoutSet {
 
   @HiveField(2)
   bool isCompleted = false;
+
+  @HiveField(3)
+  late String id;
+
+  WorkoutSet({String? id}) {
+    this.id = id ?? uuid.v4();
+  }
 }
 
 @HiveType(typeId: 3)

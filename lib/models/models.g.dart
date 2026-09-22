@@ -99,19 +99,22 @@ class WorkoutSetAdapter extends TypeAdapter<WorkoutSet> {
     return WorkoutSet()
       ..reps = fields[0] as int
       ..weight = fields[1] as double
-      ..isCompleted = fields[2] as bool;
+      ..isCompleted = fields[2] as bool
+      ..id = fields[3] as String? ?? uuid.v4();
   }
 
   @override
   void write(BinaryWriter writer, WorkoutSet obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.reps)
       ..writeByte(1)
       ..write(obj.weight)
       ..writeByte(2)
-      ..write(obj.isCompleted);
+      ..write(obj.isCompleted)
+      ..writeByte(3)
+      ..write(obj.id);
   }
 
   @override
