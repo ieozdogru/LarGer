@@ -72,12 +72,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
 
     sets.add(newSet);
 
-    final newExercise = WorkoutExercise()
-      ..exerciseId = exercises[exerciseIndex].exerciseId
-      ..exerciseName = exercises[exerciseIndex].exerciseName
-      ..sets = sets;
-
-    exercises[exerciseIndex] = newExercise;
+    exercises[exerciseIndex] = _copyExercise(exercises[exerciseIndex], sets);
     state = state!.copyWith(exercises: exercises);
   }
 
@@ -92,22 +87,15 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
     final exercises = List<WorkoutExercise>.from(state!.exercises);
     final sets = List<WorkoutSet>.from(exercises[exerciseIndex].sets);
 
-    // Create a new instance instead of mutating the old one so Riverpod detects the state change properly
     final currentSet = sets[setIndex];
-    final newSet = WorkoutSet()
-      ..reps = reps ?? currentSet.reps
-      ..weight = weight ?? currentSet.weight
-      ..isCompleted = isCompleted ?? currentSet.isCompleted;
+    sets[setIndex] = _copySet(
+      currentSet,
+      reps: reps,
+      weight: weight,
+      isCompleted: isCompleted,
+    );
 
-    sets[setIndex] = newSet;
-
-    // Also copy the exercise to prevent mutating it
-    final newExercise = WorkoutExercise()
-      ..exerciseId = exercises[exerciseIndex].exerciseId
-      ..exerciseName = exercises[exerciseIndex].exerciseName
-      ..sets = sets;
-
-    exercises[exerciseIndex] = newExercise;
+    exercises[exerciseIndex] = _copyExercise(exercises[exerciseIndex], sets);
     state = state!.copyWith(exercises: exercises);
   }
 
@@ -117,12 +105,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
     final sets = List<WorkoutSet>.from(exercises[exerciseIndex].sets);
     sets.removeAt(setIndex);
 
-    final newExercise = WorkoutExercise()
-      ..exerciseId = exercises[exerciseIndex].exerciseId
-      ..exerciseName = exercises[exerciseIndex].exerciseName
-      ..sets = sets;
-
-    exercises[exerciseIndex] = newExercise;
+    exercises[exerciseIndex] = _copyExercise(exercises[exerciseIndex], sets);
     state = state!.copyWith(exercises: exercises);
   }
 
@@ -186,3 +169,23 @@ final activeWorkoutProvider =
     StateNotifierProvider<ActiveWorkoutNotifier, ActiveWorkoutState?>((ref) {
       return ActiveWorkoutNotifier(ref);
     });
+
+WorkoutSet _copySet(
+  WorkoutSet set, {
+  int? reps,
+  double? weight,
+  bool? isCompleted,
+}) {
+  return WorkoutSet(id: set.id)
+    ..reps = reps ?? set.reps
+    ..weight = weight ?? set.weight
+    ..isCompleted = isCompleted ?? set.isCompleted;
+}
+
+WorkoutExercise _copyExercise(WorkoutExercise exercise, List<WorkoutSet> sets) {
+  return WorkoutExercise()
+    ..exerciseId = exercise.exerciseId
+    ..exerciseName = exercise.exerciseName
+    ..sets = sets
+    ..notes = exercise.notes;
+}
