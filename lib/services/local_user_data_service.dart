@@ -6,6 +6,9 @@ import 'package:larger/providers/calorie_target_provider.dart';
 /// Also clears [SampleDataTier.settingsKey] so debug can re-seed on next init.
 Future<void> clearLocalUserData() async {
   await Hive.box<WorkoutSession>('sessions').clear();
+  if (Hive.isBoxOpen('activeWorkout')) {
+    await Hive.box<WorkoutSession>('activeWorkout').clear();
+  }
   await Hive.box<Routine>('routines').clear();
   await Hive.box<BodyWeightLog>('bodyWeightLogs').clear();
   await Hive.box<FoodEntry>('foodEntries').clear();
