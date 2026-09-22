@@ -45,11 +45,11 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
     );
   }
 
-  void addExercise(Exercise exercise) {
-    if (state == null) return;
+  bool addExercise(Exercise exercise) {
+    if (state == null) return false;
 
     if (state!.exercises.any((e) => e.exerciseId == exercise.id)) {
-      return;
+      return false;
     }
 
     final newExercise = WorkoutExercise()
@@ -58,6 +58,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
       ..sets = [WorkoutSet()];
 
     state = state!.copyWith(exercises: [...state!.exercises, newExercise]);
+    return true;
   }
 
   void addSet(int exerciseIndex) {
