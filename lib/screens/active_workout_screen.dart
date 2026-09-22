@@ -443,6 +443,7 @@ class _ActiveSetRow extends ConsumerStatefulWidget {
   final WorkoutSet? ghostSet;
 
   const _ActiveSetRow({
+    super.key,
     required this.exerciseIndex,
     required this.setIndex,
     required this.workoutSet,
