@@ -71,6 +71,33 @@ void main() {
       );
     });
 
+    test('replaceExercise keeps the logged sets', () {
+      notifier.startWorkout();
+      notifier.addExercise(Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'));
+      notifier.updateSet(0, 0, reps: 8, weight: 60, isCompleted: true);
+      notifier.addExercise(Exercise(id: 'ex-2', name: 'Row', category: 'Back'));
+
+      expect(
+        notifier.replaceExercise(
+          0,
+          Exercise(id: 'ex-3', name: 'Incline Bench', category: 'Chest'),
+        ),
+        isTrue,
+      );
+      expect(
+        notifier.replaceExercise(
+          0,
+          Exercise(id: 'ex-2', name: 'Row', category: 'Back'),
+        ),
+        isFalse,
+      );
+
+      final exercise = container.read(activeWorkoutProvider)!.exercises.first;
+      expect(exercise.exerciseName, 'Incline Bench');
+      expect(exercise.sets.first.reps, 8);
+      expect(exercise.sets.first.isCompleted, isTrue);
+    });
+
     test('addSet copies previous set values', () {
       notifier.startWorkout();
       notifier.addExercise(Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'));
