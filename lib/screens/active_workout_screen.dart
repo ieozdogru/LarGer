@@ -298,11 +298,7 @@ class _ActiveExerciseCard extends ConsumerWidget {
 
     String ghostText = 'First time for this exercise!';
     if (prevExercise != null) {
-      final setsStr = prevExercise.sets.map((s) => '${s.reps}').join(', ');
-      final maxW = prevExercise.sets
-          .map((s) => s.weight)
-          .reduce((a, b) => a > b ? a : b);
-      ghostText = 'Last time: $maxW kg x $setsStr';
+      ghostText = formatLastSession(prevExercise);
     }
 
     return Card(
@@ -609,4 +605,16 @@ String _formatWeight(double weight) {
   if (weight == 0) return '';
   if (weight == weight.roundToDouble()) return weight.toInt().toString();
   return weight.toString();
+}
+
+String formatLastSession(WorkoutExercise exercise) {
+  final parts = exercise.sets
+      .map((set) {
+        final weight = set.weight == set.weight.roundToDouble()
+            ? set.weight.toInt().toString()
+            : set.weight.toString();
+        return '$weight kg × ${set.reps}';
+      })
+      .join(', ');
+  return 'Last time: $parts';
 }
