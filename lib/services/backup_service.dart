@@ -144,6 +144,9 @@ class BackupService {
       await exercisesBox.clear();
       await routinesBox.clear();
       await sessionsBox.clear();
+      if (Hive.isBoxOpen('activeWorkout')) {
+        await Hive.box<WorkoutSession>('activeWorkout').clear();
+      }
       await bodyWeightLogsBox.clear();
       await foodEntriesBox.clear();
       await settingsBox.clear();
