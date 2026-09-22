@@ -124,7 +124,16 @@ class ActiveWorkoutScreen extends ConsumerWidget {
               ),
             );
             if (result != null) {
-              ref.read(activeWorkoutProvider.notifier).addExercise(result);
+              final added = ref
+                  .read(activeWorkoutProvider.notifier)
+                  .addExercise(result);
+              if (!added && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('That exercise is already in this workout.'),
+                  ),
+                );
+              }
             }
           },
           label: const Text('Add Exercise'),
@@ -316,6 +325,30 @@ class _ActiveExerciseCard extends ConsumerWidget {
                     exercise.exerciseName ?? 'Unknown',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.swap_horiz),
+                  tooltip: 'Replace exercise',
+                  onPressed: () async {
+                    final Exercise? result = await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ExerciseSelectionScreen(),
+                      ),
+                    );
+                    if (result == null || !context.mounted) return;
+                    final replaced = ref
+                        .read(activeWorkoutProvider.notifier)
+                        .replaceExercise(exerciseIndex, result);
+                    if (!replaced && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'That exercise is already in this workout.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete, color: Colors.grey),
