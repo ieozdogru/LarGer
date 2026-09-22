@@ -5,6 +5,7 @@ import 'package:larger/models/models.dart';
 import 'package:larger/providers/history_provider.dart';
 import 'package:larger/theme/app_theme.dart';
 import 'package:larger/widgets/bounce_button.dart';
+import 'package:larger/widgets/profile_button.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:larger/screens/edit_workout_screen.dart';
 
@@ -16,7 +17,10 @@ class HistoryScreen extends ConsumerWidget {
     final historyAsyncValue = ref.watch(historyProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('HISTORY')),
+      appBar: AppBar(
+        leading: const ProfileButton(),
+        title: const Text('HISTORY'),
+      ),
       body: historyAsyncValue.when(
         data: (sessions) {
           final Map<DateTime, WorkoutSession> workoutMap = {};

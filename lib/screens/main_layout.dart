@@ -4,7 +4,6 @@ import 'package:larger/providers/active_workout_provider.dart';
 import 'package:larger/providers/calorie_target_provider.dart';
 import 'package:larger/screens/food_screen.dart';
 import 'package:larger/screens/history_screen.dart';
-import 'package:larger/screens/profile_screen.dart';
 import 'package:larger/screens/today_screen.dart';
 import 'package:larger/screens/active_workout_screen.dart';
 import 'package:larger/screens/welcome_screen.dart';
@@ -20,16 +19,25 @@ class MainLayout extends ConsumerStatefulWidget {
 }
 
 class _MainLayoutState extends ConsumerState<MainLayout> {
-  /// History = 0, Today = 1 (default), Food = 2, Profile = 3
+  /// History = 0, Today = 1 (default), Food = 2
   int _currentIndex = 1;
   var _splashDone = false;
+  late final PageController _pages = PageController(initialPage: 1);
 
-  final List<Widget> _screens = [
-    const HistoryScreen(),
-    const TodayScreen(),
-    const FoodScreen(),
-    const ProfileScreen(),
-  ];
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  void _goToPage(int index) {
+    if (_currentIndex == index) return;
+    _pages.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,14 +49,19 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final home = activeWorkout != null
         ? const ActiveWorkoutScreen()
         : Scaffold(
-            body: IndexedStack(index: _currentIndex, children: _screens),
+            body: PageView(
+              controller: _pages,
+              physics: const BouncingScrollPhysics(),
+              onPageChanged: (index) => setState(() => _currentIndex = index),
+              children: const [
+                _KeptPage(child: HistoryScreen()),
+                _KeptPage(child: TodayScreen()),
+                _KeptPage(child: FoodScreen()),
+              ],
+            ),
             bottomNavigationBar: NavigationBar(
               selectedIndex: _currentIndex,
-              onDestinationSelected: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
+              onDestinationSelected: _goToPage,
               backgroundColor: AppTheme.surfaceColor,
               indicatorColor: AppTheme.accentRed.withValues(alpha: 0.2),
               destinations: const [
@@ -69,11 +82,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                     color: AppTheme.accentRed,
                   ),
                   label: 'Food',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.person_outline),
-                  selectedIcon: Icon(Icons.person, color: AppTheme.accentRed),
-                  label: 'Profile',
                 ),
               ],
             ),
@@ -100,5 +108,26 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           ),
       ],
     );
+  }
+}
+
+class _KeptPage extends StatefulWidget {
+  const _KeptPage({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeptPage> createState() => _KeptPageState();
+}
+
+class _KeptPageState extends State<_KeptPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
