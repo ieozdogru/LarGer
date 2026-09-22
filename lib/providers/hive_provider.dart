@@ -18,6 +18,7 @@ Future<void> initHive() async {
   await Hive.openBox<Exercise>('exercises');
   await Hive.openBox<Routine>('routines');
   await Hive.openBox<WorkoutSession>('sessions');
+  await Hive.openBox<WorkoutSession>('activeWorkout');
   await Hive.openBox<BodyWeightLog>('bodyWeightLogs');
   await Hive.openBox<FoodEntry>('foodEntries');
   await Hive.openBox('settings');
