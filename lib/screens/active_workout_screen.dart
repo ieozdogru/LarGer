@@ -50,34 +50,34 @@ class ActiveWorkoutScreen extends ConsumerWidget {
             tooltip: 'Discard workout',
             icon: const Icon(Icons.close),
             onPressed: () async {
-            final confirm = await showDialog<bool>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Discard Workout'),
-                content: const Text(
-                  'Are you sure you want to discard this workout? Your current progress will be lost.',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(false),
-                    child: const Text('Keep Lifting'),
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Discard Workout'),
+                  content: const Text(
+                    'Are you sure you want to discard this workout? Your current progress will be lost.',
                   ),
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(true),
-                    child: const Text(
-                      'Discard Workout',
-                      style: TextStyle(color: Colors.red),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('Keep Lifting'),
                     ),
-                  ),
-                ],
-              ),
-            );
-            if (confirm == true) {
-              ref.read(activeWorkoutProvider.notifier).cancelWorkout();
-              if (context.mounted) Navigator.of(context).maybePop();
-            }
-          },
-        ),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      child: const Text(
+                        'Discard Workout',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                ref.read(activeWorkoutProvider.notifier).cancelWorkout();
+                if (context.mounted) Navigator.of(context).maybePop();
+              }
+            },
+          ),
         ],
       ),
       body: ReorderableListView.builder(
