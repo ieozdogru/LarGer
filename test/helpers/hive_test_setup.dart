@@ -12,6 +12,9 @@ Future<void> setUpHiveForTests() async {
   if (Hive.isBoxOpen('sessions')) {
     await Hive.box<WorkoutSession>('sessions').clear();
   }
+  if (Hive.isBoxOpen('activeWorkout')) {
+    await Hive.box<WorkoutSession>('activeWorkout').clear();
+  }
   if (Hive.isBoxOpen('bodyWeightLogs')) {
     await Hive.box<BodyWeightLog>('bodyWeightLogs').clear();
   }
@@ -23,6 +26,12 @@ Future<void> setUpHiveForTests() async {
   }
 
   if (_tempDir != null) {
+    if (!Hive.isBoxOpen('sessions')) {
+      await Hive.openBox<WorkoutSession>('sessions');
+    }
+    if (!Hive.isBoxOpen('activeWorkout')) {
+      await Hive.openBox<WorkoutSession>('activeWorkout');
+    }
     if (!Hive.isBoxOpen('bodyWeightLogs')) {
       await Hive.openBox<BodyWeightLog>('bodyWeightLogs');
     }
@@ -65,6 +74,7 @@ Future<void> setUpHiveForTests() async {
 
   await Hive.openBox<Routine>('routines');
   await Hive.openBox<WorkoutSession>('sessions');
+  await Hive.openBox<WorkoutSession>('activeWorkout');
   await Hive.openBox<BodyWeightLog>('bodyWeightLogs');
   await Hive.openBox<FoodEntry>('foodEntries');
   await Hive.openBox('settings');
@@ -76,6 +86,9 @@ Future<void> tearDownHiveForTests() async {
   }
   if (Hive.isBoxOpen('sessions')) {
     await Hive.box<WorkoutSession>('sessions').clear();
+  }
+  if (Hive.isBoxOpen('activeWorkout')) {
+    await Hive.box<WorkoutSession>('activeWorkout').clear();
   }
   if (Hive.isBoxOpen('bodyWeightLogs')) {
     await Hive.box<BodyWeightLog>('bodyWeightLogs').clear();
