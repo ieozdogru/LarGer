@@ -39,53 +39,79 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     );
   }
 
+  void _resumeWorkout() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const ActiveWorkoutScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeWorkout = ref.watch(activeWorkoutProvider);
     final welcomeDone = ref.watch(welcomeCompletedProvider);
-    final showWelcome = activeWorkout == null && !welcomeDone;
+    final showWelcome = !welcomeDone;
     final showFarewell = ref.watch(welcomeFarewellProvider);
 
-    final home = activeWorkout != null
-        ? const ActiveWorkoutScreen()
-        : Scaffold(
-            body: PageView(
-              controller: _pages,
-              physics: const BouncingScrollPhysics(),
-              onPageChanged: (index) => setState(() => _currentIndex = index),
-              children: const [
-                _KeptPage(child: HistoryScreen()),
-                _KeptPage(child: TodayScreen()),
-                _KeptPage(child: FoodScreen()),
-              ],
-            ),
-            bottomNavigationBar: NavigationBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: _goToPage,
-              backgroundColor: AppTheme.surfaceColor,
-              indicatorColor: AppTheme.accentRed.withValues(alpha: 0.2),
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.history_outlined),
-                  selectedIcon: Icon(Icons.history, color: AppTheme.accentRed),
-                  label: 'History',
+    final home = Scaffold(
+      body: PageView(
+        controller: _pages,
+        physics: const BouncingScrollPhysics(),
+        onPageChanged: (index) => setState(() => _currentIndex = index),
+        children: const [
+          _KeptPage(child: HistoryScreen()),
+          _KeptPage(child: TodayScreen()),
+          _KeptPage(child: FoodScreen()),
+        ],
+      ),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (activeWorkout != null)
+            Material(
+              color: AppTheme.surfaceColor,
+              child: ListTile(
+                dense: true,
+                leading: const Icon(
+                  Icons.fitness_center,
+                  color: AppTheme.accentRed,
                 ),
-                NavigationDestination(
-                  icon: Icon(Icons.today_outlined),
-                  selectedIcon: Icon(Icons.today, color: AppTheme.accentRed),
-                  label: 'Today',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.restaurant_outlined),
-                  selectedIcon: Icon(
-                    Icons.restaurant,
+                title: Text(activeWorkout.routineName ?? 'Workout in progress'),
+                trailing: const Text(
+                  'Resume',
+                  style: TextStyle(
                     color: AppTheme.accentRed,
+                    fontWeight: FontWeight.bold,
                   ),
-                  label: 'Food',
                 ),
-              ],
+                onTap: _resumeWorkout,
+              ),
             ),
-          );
+          NavigationBar(
+            selectedIndex: _currentIndex,
+            onDestinationSelected: _goToPage,
+            backgroundColor: AppTheme.surfaceColor,
+            indicatorColor: AppTheme.accentRed.withValues(alpha: 0.2),
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.history_outlined),
+                selectedIcon: Icon(Icons.history, color: AppTheme.accentRed),
+                label: 'History',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.today_outlined),
+                selectedIcon: Icon(Icons.today, color: AppTheme.accentRed),
+                label: 'Today',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.restaurant_outlined),
+                selectedIcon: Icon(Icons.restaurant, color: AppTheme.accentRed),
+                label: 'Food',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
 
     return Stack(
       fit: StackFit.expand,
