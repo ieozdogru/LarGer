@@ -41,8 +41,15 @@ class ActiveWorkoutScreen extends ConsumerWidget {
           ],
         ),
         leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () async {
+          tooltip: 'Back',
+          icon: const Icon(Icons.keyboard_arrow_down),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Discard workout',
+            icon: const Icon(Icons.close),
+            onPressed: () async {
             final confirm = await showDialog<bool>(
               context: context,
               builder: (ctx) => AlertDialog(
@@ -67,9 +74,11 @@ class ActiveWorkoutScreen extends ConsumerWidget {
             );
             if (confirm == true) {
               ref.read(activeWorkoutProvider.notifier).cancelWorkout();
+              if (context.mounted) Navigator.of(context).maybePop();
             }
           },
         ),
+        ],
       ),
       body: ReorderableListView.builder(
         padding: const EdgeInsets.only(bottom: 160),
