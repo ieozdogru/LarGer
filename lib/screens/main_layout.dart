@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:larger/screens/history_screen.dart';
-import 'package:larger/screens/routines_screen.dart';
-import 'package:larger/screens/start_workout_screen.dart';
-import 'package:larger/screens/active_workout_screen.dart';
-import 'package:larger/screens/profile_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:larger/providers/active_workout_provider.dart';
+import 'package:larger/providers/calorie_target_provider.dart';
+import 'package:larger/screens/food_screen.dart';
+import 'package:larger/screens/history_screen.dart';
+import 'package:larger/screens/today_screen.dart';
+import 'package:larger/screens/active_workout_screen.dart';
+import 'package:larger/screens/welcome_screen.dart';
+import 'package:larger/theme/app_theme.dart';
+import 'package:larger/widgets/startup_splash.dart';
+import 'package:larger/widgets/welcome_farewell.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   const MainLayout({super.key});
@@ -15,45 +19,141 @@ class MainLayout extends ConsumerStatefulWidget {
 }
 
 class _MainLayoutState extends ConsumerState<MainLayout> {
-  int _currentIndex = 0;
+  /// History = 0, Today = 1 (default), Food = 2
+  int _currentIndex = 1;
+  var _splashDone = false;
+  late final PageController _pages = PageController(initialPage: 1);
 
-  final List<Widget> _screens = [
-    const HistoryScreen(),
-    const StartWorkoutScreen(),
-    const RoutinesScreen(),
-    const ProfileScreen(),
-  ];
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  void _goToPage(int index) {
+    if (_currentIndex == index) return;
+    _pages.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _resumeWorkout() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const ActiveWorkoutScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final activeWorkout = ref.watch(activeWorkoutProvider);
+    final welcomeDone = ref.watch(welcomeCompletedProvider);
+    final showWelcome = !welcomeDone;
+    final showFarewell = ref.watch(welcomeFarewellProvider);
 
-    if (activeWorkout != null) {
-      return const ActiveWorkoutScreen();
-    }
-
-    return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline),
-            label: 'Workout',
+    final home = Scaffold(
+      body: PageView(
+        controller: _pages,
+        physics: const BouncingScrollPhysics(),
+        onPageChanged: (index) => setState(() => _currentIndex = index),
+        children: const [
+          _KeptPage(child: HistoryScreen()),
+          _KeptPage(child: TodayScreen()),
+          _KeptPage(child: FoodScreen()),
+        ],
+      ),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (activeWorkout != null)
+            Material(
+              color: AppTheme.surfaceColor,
+              child: ListTile(
+                dense: true,
+                leading: const Icon(
+                  Icons.fitness_center,
+                  color: AppTheme.accentRed,
+                ),
+                title: Text(activeWorkout.routineName ?? 'Workout in progress'),
+                trailing: const Text(
+                  'Resume',
+                  style: TextStyle(
+                    color: AppTheme.accentRed,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: _resumeWorkout,
+              ),
+            ),
+          NavigationBar(
+            selectedIndex: _currentIndex,
+            onDestinationSelected: _goToPage,
+            backgroundColor: AppTheme.surfaceColor,
+            indicatorColor: AppTheme.accentRed.withValues(alpha: 0.2),
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.history_outlined),
+                selectedIcon: Icon(Icons.history, color: AppTheme.accentRed),
+                label: 'History',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.today_outlined),
+                selectedIcon: Icon(Icons.today, color: AppTheme.accentRed),
+                label: 'Today',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.restaurant_outlined),
+                selectedIcon: Icon(Icons.restaurant, color: AppTheme.accentRed),
+                label: 'Food',
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list_alt),
-            label: 'Routines',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        home,
+        if (showWelcome) const WelcomeScreen(),
+        if (showFarewell)
+          WelcomeFarewell(
+            onFinished: () {
+              if (mounted) {
+                ref.read(welcomeFarewellProvider.notifier).hide();
+              }
+            },
+          ),
+        if (!_splashDone)
+          StartupSplash(
+            onFinished: () {
+              if (mounted) setState(() => _splashDone = true);
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _KeptPage extends StatefulWidget {
+  const _KeptPage({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeptPage> createState() => _KeptPageState();
+}
+
+class _KeptPageState extends State<_KeptPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

@@ -96,22 +96,31 @@ class WorkoutSetAdapter extends TypeAdapter<WorkoutSet> {
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return WorkoutSet()
+    return WorkoutSet(
+      id: fields[3] as String?,
+    )
       ..reps = fields[0] as int
       ..weight = fields[1] as double
-      ..isCompleted = fields[2] as bool;
+      ..isCompleted = fields[2] as bool
+      ..kind = fields[4] == null
+          ? WorkoutSetKind.working
+          : fields[4] as WorkoutSetKind;
   }
 
   @override
   void write(BinaryWriter writer, WorkoutSet obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.reps)
       ..writeByte(1)
       ..write(obj.weight)
       ..writeByte(2)
-      ..write(obj.isCompleted);
+      ..write(obj.isCompleted)
+      ..writeByte(3)
+      ..write(obj.id)
+      ..writeByte(4)
+      ..write(obj.kind);
   }
 
   @override
@@ -177,7 +186,9 @@ class WorkoutSessionAdapter extends TypeAdapter<WorkoutSession> {
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return WorkoutSession(id: fields[0] as String?)
+    return WorkoutSession(
+      id: fields[0] as String?,
+    )
       ..routineName = fields[1] as String?
       ..startTime = fields[2] as DateTime
       ..endTime = fields[3] as DateTime?
@@ -293,6 +304,119 @@ class RoutineExerciseAdapter extends TypeAdapter<RoutineExercise> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is RoutineExerciseAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class FoodEntryAdapter extends TypeAdapter<FoodEntry> {
+  @override
+  final int typeId = 7;
+
+  @override
+  FoodEntry read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return FoodEntry(
+      id: fields[0] as String?,
+      name: fields[1] as String,
+      meal: fields[2] as String,
+      loggedAt: fields[3] as DateTime,
+      servingLabel: fields[4] as String?,
+      servings: fields[5] as double,
+      calories: fields[6] as double?,
+      proteinG: fields[7] as double?,
+      carbsG: fields[8] as double?,
+      fatG: fields[9] as double?,
+      source: fields[10] as String,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, FoodEntry obj) {
+    writer
+      ..writeByte(11)
+      ..writeByte(0)
+      ..write(obj.id)
+      ..writeByte(1)
+      ..write(obj.name)
+      ..writeByte(2)
+      ..write(obj.meal)
+      ..writeByte(3)
+      ..write(obj.loggedAt)
+      ..writeByte(4)
+      ..write(obj.servingLabel)
+      ..writeByte(5)
+      ..write(obj.servings)
+      ..writeByte(6)
+      ..write(obj.calories)
+      ..writeByte(7)
+      ..write(obj.proteinG)
+      ..writeByte(8)
+      ..write(obj.carbsG)
+      ..writeByte(9)
+      ..write(obj.fatG)
+      ..writeByte(10)
+      ..write(obj.source);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FoodEntryAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class WorkoutSetKindAdapter extends TypeAdapter<WorkoutSetKind> {
+  @override
+  final int typeId = 8;
+
+  @override
+  WorkoutSetKind read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return WorkoutSetKind.working;
+      case 1:
+        return WorkoutSetKind.warmup;
+      case 2:
+        return WorkoutSetKind.failure;
+      case 3:
+        return WorkoutSetKind.drop;
+      default:
+        return WorkoutSetKind.working;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, WorkoutSetKind obj) {
+    switch (obj) {
+      case WorkoutSetKind.working:
+        writer.writeByte(0);
+        break;
+      case WorkoutSetKind.warmup:
+        writer.writeByte(1);
+        break;
+      case WorkoutSetKind.failure:
+        writer.writeByte(2);
+        break;
+      case WorkoutSetKind.drop:
+        writer.writeByte(3);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WorkoutSetKindAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

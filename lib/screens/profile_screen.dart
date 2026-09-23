@@ -1,18 +1,42 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:larger/providers/exercise_provider.dart';
-import 'package:larger/providers/profile_provider.dart';
-import 'package:larger/theme/app_theme.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:larger/services/backup_service.dart';
+import 'package:larger/providers/calorie_target_provider.dart';
+import 'package:larger/providers/exercise_provider.dart';
+import 'package:larger/providers/food_provider.dart';
 import 'package:larger/providers/history_provider.dart';
+import 'package:larger/providers/profile_provider.dart';
 import 'package:larger/providers/routine_provider.dart';
+import 'package:larger/services/backup_service.dart';
+import 'package:larger/services/dev_sample_data.dart';
+import 'package:larger/services/local_user_data_service.dart';
+import 'package:larger/theme/app_theme.dart';
 import 'package:larger/utils/string_extensions.dart';
-import 'package:larger/models/models.dart';
+import 'package:larger/utils/validators.dart';
+
+/// The icon finishes its move in the first part of the route, then holds.
+RectTween profileIconRectTween(Rect? begin, Rect? end) {
+  return _ArriveThenHoldRectTween(begin: begin, end: end);
+}
+
+class _ArriveThenHoldRectTween extends RectTween {
+  _ArriveThenHoldRectTween({super.begin, super.end});
+
+  @override
+  Rect? lerp(double t) {
+    final travel = (t / 0.42).clamp(0.0, 1.0);
+    return Rect.lerp(begin, end, Curves.easeOutCubic.transform(travel));
+  }
+}
 
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, required this.heroTag, this.entrance});
+
+  final String heroTag;
+
+  /// Route animation. The icon arrives first; the page body follows downward.
+  final Animation<double>? entrance;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -20,84 +44,179 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _selectedExerciseId;
+  String? _selectedExerciseName;
+  CurvedAnimation? _drop;
+  CurvedAnimation? _titleFade;
+  CurvedAnimation? _backdrop;
+  Animation<Offset>? _dropOffset;
+
+  @override
+  void initState() {
+    super.initState();
+    final entrance = widget.entrance;
+    if (entrance == null) return;
+    _drop = CurvedAnimation(
+      parent: entrance,
+      curve: const Interval(0.45, 1, curve: Curves.easeOutCubic),
+      reverseCurve: const Interval(0.45, 1, curve: Curves.easeInCubic),
+    );
+    _titleFade = CurvedAnimation(
+      parent: entrance,
+      curve: const Interval(0.32, 0.5, curve: Curves.easeOut),
+      reverseCurve: const Interval(0.32, 0.5, curve: Curves.easeIn),
+    );
+    _backdrop = CurvedAnimation(
+      parent: entrance,
+      curve: const Interval(0.28, 0.48, curve: Curves.easeOut),
+      reverseCurve: const Interval(0.28, 0.48, curve: Curves.easeIn),
+    );
+    _dropOffset = Tween<Offset>(
+      begin: const Offset(0, -1),
+      end: Offset.zero,
+    ).animate(_drop!);
+  }
+
+  @override
+  void dispose() {
+    _drop?.dispose();
+    _titleFade?.dispose();
+    _backdrop?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('PROFILE & ANALYTICS')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    final entrance = widget.entrance;
+    final drop = _drop;
+    final titleFade = _titleFade;
+    final backdrop = _backdrop;
+
+    Widget title = const Text('PROFILE');
+    if (titleFade != null) {
+      title = FadeTransition(opacity: titleFade, child: title);
+    }
+
+    Widget body = SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildBodyStatsSection(),
+          const SizedBox(height: 20),
+          _buildAnalyticsSection(),
+          const SizedBox(height: 20),
+          _buildBackupSection(),
+          if (devSettingsEnabled) ...[
+            const SizedBox(height: 20),
+            _buildDeveloperSection(),
+          ],
+        ],
+      ),
+    );
+    if (drop != null) {
+      body = ClipRect(
+        child: SlideTransition(
+          position: _dropOffset!,
+          child: FadeTransition(opacity: drop, child: body),
+        ),
+      );
+    }
+
+    final page = Scaffold(
+      backgroundColor: entrance == null
+          ? AppTheme.primaryBackground
+          : Colors.transparent,
+      appBar: AppBar(
+        backgroundColor: entrance == null ? null : Colors.transparent,
+        surfaceTintColor: entrance == null ? null : Colors.transparent,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildBodyStatsSection(),
-            const SizedBox(height: 24),
-            _buildAnalyticsSection(),
-            const SizedBox(height: 32),
-            _buildBackupSection(),
+            Hero(
+              tag: widget.heroTag,
+              createRectTween: profileIconRectTween,
+              child: const Material(
+                color: Colors.transparent,
+                child: Icon(Icons.person_outline, size: 24),
+              ),
+            ),
+            const SizedBox(width: 8),
+            title,
           ],
         ),
       ),
+      body: body,
+    );
+
+    if (backdrop == null) return page;
+
+    return Stack(
+      children: [
+        FadeTransition(
+          opacity: backdrop,
+          child: const ColoredBox(
+            color: AppTheme.primaryBackground,
+            child: SizedBox.expand(),
+          ),
+        ),
+        page,
+      ],
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Text(
+      title,
+      style: Theme.of(
+        context,
+      ).textTheme.titleLarge?.copyWith(color: AppTheme.accentRed),
     );
   }
 
   Widget _buildBodyStatsSection() {
-    final height = ref.watch(profileNotifierProvider).getHeight();
+    final height = ref.watch(heightProvider);
     final weightAsync = ref.watch(bodyWeightProvider);
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'BODY STATS',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(color: AppTheme.accentRed),
+            _sectionTitle('BODY STATS'),
+            const SizedBox(height: 8),
+            _statTile(
+              label: 'Height',
+              value: '${height.toStringAsFixed(1)} cm',
+              onTap: _showEditHeightDialog,
             ),
-            const Divider(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Height:', style: Theme.of(context).textTheme.titleMedium),
-                TextButton(
-                  onPressed: _showEditHeightDialog,
-                  child: Text(
-                    '${height.toStringAsFixed(1)} cm',
-                    style: const TextStyle(fontSize: 16, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Current Weight:',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                weightAsync.when(
-                  data: (logs) {
-                    final weight = logs.isNotEmpty ? logs.first.weight : 0.0;
-                    return TextButton(
-                      onPressed: _showLogWeightDialog,
-                      child: Text(
-                        logs.isNotEmpty
-                            ? '${weight.toStringAsFixed(1)} kg'
-                            : 'Log Weight',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.white,
-                        ),
-                      ),
-                    );
-                  },
-                  loading: () => const CircularProgressIndicator(),
-                  error: (_, __) => const Text('Error'),
-                ),
-              ],
+            weightAsync.when(
+              data: (logs) {
+                if (logs.isEmpty) {
+                  return _statTile(
+                    label: 'Weight',
+                    value: 'Log weight',
+                    subtitle: 'No entries yet',
+                    onTap: _showLogWeightDialog,
+                  );
+                }
+                final latest = logs.first;
+                return _statTile(
+                  label: 'Weight',
+                  value: '${latest.weight.toStringAsFixed(1)} kg',
+                  subtitle:
+                      'Logged ${DateFormat('MMM d, yyyy').format(latest.date)}',
+                  onTap: _showLogWeightDialog,
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (_, _) => const ListTile(
+                title: Text('Weight'),
+                subtitle: Text('Could not load weight logs'),
+              ),
             ),
           ],
         ),
@@ -105,73 +224,140 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  Widget _statTile({
+    required String label,
+    required String value,
+    String? subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(label),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle, style: const TextStyle(color: Colors.grey)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right, color: Colors.grey),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+
   void _showEditHeightDialog() {
     final controller = TextEditingController(
-      text: ref.read(profileNotifierProvider).getHeight().toString(),
+      text: ref.read(heightProvider).toStringAsFixed(1),
     );
+    String? errorText;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Height (cm)'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(hintText: 'e.g. 175.0'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final h = double.tryParse(controller.text);
-              if (h != null) {
-                ref.read(profileNotifierProvider).setHeight(h);
-                setState(() {});
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Edit Height (cm)'),
+            content: TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                hintText: 'e.g. 175.0',
+                errorText: errorText,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final validationError = validateHeightCm(controller.text);
+                  if (validationError != null) {
+                    setDialogState(() => errorText = validationError);
+                    return;
+                  }
+                  final height = double.parse(controller.text.trim());
+                  await ref.read(profileNotifierProvider).setHeight(height);
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   void _showLogWeightDialog() {
     final controller = TextEditingController();
+    String? errorText;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Log Body Weight (kg)'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(hintText: 'e.g. 80.5'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final w = double.tryParse(controller.text);
-              if (w != null) {
-                ref.read(profileNotifierProvider).logBodyWeight(w);
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Log Body Weight (kg)'),
+            content: TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                hintText: 'e.g. 80.5',
+                errorText: errorText,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final validationError = validateWeightKg(controller.text);
+                  if (validationError != null) {
+                    setDialogState(() => errorText = validationError);
+                    return;
+                  }
+                  final weight = double.parse(controller.text.trim());
+                  await ref.read(profileNotifierProvider).logBodyWeight(weight);
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
+  void _selectTrackedExercise(TrackedExercise exercise) {
+    setState(() {
+      _selectedExerciseId = exercise.exerciseId;
+      _selectedExerciseName = exercise.exerciseName.toTitleCase();
+    });
+    FocusScope.of(context).unfocus();
+  }
+
   Widget _buildAnalyticsSection() {
-    final exercisesAsync = ref.watch(exercisesProvider);
+    final trackedAsync = ref.watch(trackedExercisesProvider);
+    final recentAsync = ref.watch(recentTrackedExercisesProvider);
 
     return Card(
       child: Padding(
@@ -179,97 +365,154 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'EXERCISE ANALYTICS',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(color: AppTheme.accentRed),
-            ),
-            const Divider(),
-            const SizedBox(height: 8),
-            exercisesAsync.when(
-              data: (exercises) {
-                return Autocomplete<Exercise>(
-                  displayStringForOption: (Exercise option) =>
-                      option.name.toTitleCase(),
-                  optionsBuilder: (TextEditingValue textEditingValue) {
-                    if (textEditingValue.text.isEmpty) {
-                      return exercises;
-                    }
-                    return exercises.where((Exercise option) {
-                      return option.name.toLowerCase().contains(
-                        textEditingValue.text.toLowerCase(),
-                      );
-                    });
-                  },
-                  onSelected: (Exercise selection) {
-                    setState(() {
-                      _selectedExerciseId = selection.id;
-                    });
-                    FocusScope.of(context).unfocus();
-                  },
-                  fieldViewBuilder:
-                      (context, controller, focusNode, onFieldSubmitted) {
-                        return TextField(
-                          controller: controller,
-                          focusNode: focusNode,
-                          decoration: InputDecoration(
-                            hintText: 'Search exercise...',
-                            prefixIcon: const Icon(
-                              Icons.search,
-                              color: Colors.grey,
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[900],
-                            border: OutlineInputBorder(
+            _sectionTitle('EXERCISE ANALYTICS'),
+            const SizedBox(height: 12),
+            trackedAsync.when(
+              data: (tracked) {
+                if (tracked.isEmpty) {
+                  return const Text(
+                    'Complete sets in a workout to unlock exercise analytics.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Autocomplete<TrackedExercise>(
+                      displayStringForOption: (option) =>
+                          option.exerciseName.toTitleCase(),
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        final query = textEditingValue.text.toLowerCase();
+                        if (query.isEmpty) return tracked;
+                        return tracked.where(
+                          (option) =>
+                              option.exerciseName.toLowerCase().contains(query),
+                        );
+                      },
+                      onSelected: _selectTrackedExercise,
+                      fieldViewBuilder:
+                          (context, controller, focusNode, onFieldSubmitted) {
+                            return TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              decoration: InputDecoration(
+                                hintText: 'Search exercises with data...',
+                                prefixIcon: const Icon(
+                                  Icons.search,
+                                  color: Colors.grey,
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey[900],
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            );
+                          },
+                      optionsViewBuilder: (context, onSelected, options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4.0,
+                            color: Colors.grey[900],
+                            shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide.none,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: 250,
+                                maxWidth:
+                                    MediaQuery.of(context).size.width - 64,
+                              ),
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: options.length,
+                                itemBuilder: (context, index) {
+                                  final option = options.elementAt(index);
+                                  return ListTile(
+                                    title: Text(
+                                      option.exerciseName.toTitleCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      'Last: ${DateFormat('MMM d, yyyy').format(option.lastPerformed)}',
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    onTap: () => onSelected(option),
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         );
                       },
-                  optionsViewBuilder: (context, onSelected, options) {
-                    return Align(
-                      alignment: Alignment.topLeft,
-                      child: Material(
-                        elevation: 4.0,
-                        color: Colors.grey[900],
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight: 250,
-                            maxWidth: MediaQuery.of(context).size.width - 64,
-                          ),
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
-                            shrinkWrap: true,
-                            itemCount: options.length,
-                            itemBuilder: (BuildContext context, int index) {
-                              final Exercise option = options.elementAt(index);
-                              return ListTile(
-                                title: Text(
-                                  option.name.toTitleCase(),
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                                onTap: () {
-                                  onSelected(option);
-                                },
-                              );
-                            },
-                          ),
-                        ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'RECENT',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(height: 8),
+                    recentAsync.when(
+                      data: (recent) {
+                        return Column(
+                          children: recent.map((exercise) {
+                            final selected =
+                                exercise.exerciseId == _selectedExerciseId;
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              selected: selected,
+                              selectedTileColor: AppTheme.accentRed.withValues(
+                                alpha: 0.12,
+                              ),
+                              title: Text(exercise.exerciseName.toTitleCase()),
+                              subtitle: Text(
+                                DateFormat(
+                                  'MMM d, yyyy',
+                                ).format(exercise.lastPerformed),
+                                style: const TextStyle(color: Colors.grey),
+                              ),
+                              trailing: const Icon(
+                                Icons.chevron_right,
+                                color: Colors.grey,
+                              ),
+                              onTap: () => _selectTrackedExercise(exercise),
+                            );
+                          }).toList(),
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, _) => const SizedBox.shrink(),
+                    ),
+                  ],
                 );
               },
-              loading: () => const CircularProgressIndicator(),
-              error: (_, __) => const Text('Error loading exercises'),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, _) => const Text('Error loading exercise history'),
             ),
-            const SizedBox(height: 24),
-            if (_selectedExerciseId != null) _buildExerciseProgression(),
+            const SizedBox(height: 20),
+            if (_selectedExerciseId == null)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'Pick a recent exercise or search to see PRs and progress',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+              )
+            else
+              _buildExerciseProgression(),
           ],
         ),
       ),
@@ -283,57 +526,64 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return analyticsAsync.when(
       data: (analytics) {
-        if (analytics == null || analytics.progression.isEmpty) {
-          return const Center(
-            child: Text(
-              'No data recorded for this exercise yet.',
-              style: TextStyle(color: Colors.grey),
-            ),
-          );
-        }
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'ALL-TIME PR: ${analytics.prWeight} kg',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
+              _selectedExerciseName ?? 'Selected exercise',
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 16),
-            SizedBox(height: 200, child: _buildChart(analytics.progression)),
-            const SizedBox(height: 16),
-            const Text(
-              'HISTORY',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            ...analytics.progression.reversed.map(
-              (p) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      DateFormat('MMM d, yyyy').format(p.date),
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                    Text(
-                      '${p.maxWeight} kg x ${p.reps}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ],
+            const SizedBox(height: 12),
+            if (analytics == null || analytics.progression.isEmpty)
+              const Text(
+                'No data recorded for this exercise yet.',
+                style: TextStyle(color: Colors.grey),
+              )
+            else ...[
+              Text(
+                'ALL-TIME PR: ${analytics.prWeight} kg',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
                 ),
               ),
-            ),
+              const SizedBox(height: 16),
+              SizedBox(height: 200, child: _buildChart(analytics.progression)),
+              const SizedBox(height: 16),
+              Text(
+                'HISTORY',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...analytics.progression.reversed.map(
+                (p) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          DateFormat('MMM d, yyyy').format(p.date),
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                      Text(
+                        '${p.maxWeight} kg × ${p.reps}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const Text('Error loading analytics'),
+      error: (_, _) => const Text('Error loading analytics'),
     );
   }
 
@@ -347,13 +597,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
     }
 
-    List<FlSpot> spots = [];
-    double minX = 0;
-    double maxX = (progression.length - 1).toDouble();
-    double minY = progression.first.maxWeight;
-    double maxY = progression.first.maxWeight;
+    final spots = <FlSpot>[];
+    final minX = 0.0;
+    final maxX = (progression.length - 1).toDouble();
+    var minY = progression.first.maxWeight;
+    var maxY = progression.first.maxWeight;
 
-    for (int i = 0; i < progression.length; i++) {
+    for (var i = 0; i < progression.length; i++) {
       final w = progression[i].maxWeight;
       spots.add(FlSpot(i.toDouble(), w));
       if (w < minY) minY = w;
@@ -391,56 +641,145 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildBackupSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black,
-            foregroundColor: AppTheme.accentRed,
-            side: const BorderSide(color: AppTheme.accentRed),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          onPressed: () async {
-            await BackupService().exportData();
-          },
-          child: const Text(
-            'Export Data (JSON)',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _sectionTitle('BACKUP'),
+            const SizedBox(height: 8),
+            const Text(
+              'Export shares a JSON backup of this device. Import replaces all local workouts, routines, and body stats.',
+              style: TextStyle(color: Colors.grey, height: 1.35),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: AppTheme.accentRed,
+                side: const BorderSide(color: AppTheme.accentRed),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              onPressed: () async {
+                await BackupService().exportData();
+              },
+              child: const Text(
+                'Export Data (JSON)',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey[900],
+                foregroundColor: Colors.white70,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              onPressed: () => _confirmImport(),
+              child: const Text(
+                'Import Data (JSON)',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black,
-            foregroundColor: AppTheme.accentRed,
-            side: const BorderSide(color: AppTheme.accentRed),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          onPressed: () => _showImportWarningDialog(),
-          child: const Text(
-            'Import Backup',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        ),
-      ],
+      ),
     );
+  }
+
+  Widget _buildDeveloperSection() {
+    final tier = readSampleDataTier();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _sectionTitle('DEVELOPER'),
+            const SizedBox(height: 8),
+            Text(
+              'Current sample tier: ${tier.label}',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Debug builds only',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            ...SampleDataTier.values.map((sampleTier) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: tier == sampleTier
+                        ? AppTheme.accentRed
+                        : Colors.black,
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: AppTheme.accentRed),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: () => _seedSampleTier(sampleTier),
+                  child: Text('Seed ${sampleTier.label}'),
+                ),
+              );
+            }),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: AppTheme.accentRed),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: () {
+                ref.read(calorieSettingsProvider).resetWelcome();
+              },
+              child: const Text('Show welcome screen'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _seedSampleTier(SampleDataTier tier) async {
+    await clearLocalUserData();
+    await seedDevSampleData(tier: tier);
+    ref.invalidate(historyProvider);
+    ref.invalidate(routineNotifierProvider);
+    ref.invalidate(exercisesProvider);
+    ref.invalidate(bodyWeightProvider);
+    ref.invalidate(heightProvider);
+    ref.invalidate(foodEntriesProvider);
+    ref.invalidate(calorieProfileProvider);
+    ref.invalidate(calorieMemoryProvider);
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Seeded ${tier.label} sample data')));
+  }
+
+  void _confirmImport() {
+    _showImportWarningDialog();
   }
 
   void _showImportWarningDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text(
-          'Warning: Overwrite Data?',
+          'Overwrite local data?',
           style: TextStyle(color: AppTheme.accentRed),
         ),
         content: const Text(
-          'This will erase all current local data and replace it with the backup. This action cannot be undone.',
+          'Importing a backup permanently erases workouts, routines, food logs, and body stats currently on this device, then replaces them with the file you choose. This cannot be undone.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel', style: TextStyle(color: Colors.white)),
           ),
           ElevatedButton(
@@ -448,26 +787,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               backgroundColor: AppTheme.accentRed,
             ),
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               final success = await BackupService().importData();
-              if (success && mounted) {
+              if (!mounted) return;
+              final messenger = ScaffoldMessenger.of(context);
+              if (success) {
                 ref.invalidate(historyProvider);
                 ref.invalidate(routineNotifierProvider);
                 ref.invalidate(exercisesProvider);
                 ref.invalidate(bodyWeightProvider);
-                ScaffoldMessenger.of(context).showSnackBar(
+                ref.invalidate(heightProvider);
+                ref.invalidate(foodEntriesProvider);
+                messenger.showSnackBar(
                   const SnackBar(
                     content: Text('Backup imported successfully!'),
                   ),
                 );
-              } else if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+              } else {
+                messenger.showSnackBar(
                   const SnackBar(content: Text('Import canceled or failed.')),
                 );
               }
             },
             child: const Text(
-              'Confirm Overwrite',
+              'Overwrite & Import',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:larger/theme/app_theme.dart';
 import 'package:larger/providers/hive_provider.dart';
 import 'package:larger/screens/main_layout.dart';
+import 'package:larger/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

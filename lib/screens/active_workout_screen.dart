@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:larger/models/models.dart';
 import 'package:larger/providers/active_workout_provider.dart';
@@ -8,12 +9,28 @@ import 'package:larger/screens/workout_summary_screen.dart';
 import 'package:larger/services/media_controller.dart';
 import 'dart:async';
 import 'package:larger/utils/string_extensions.dart';
+import 'package:larger/widgets/set_kind_button.dart';
 
-class ActiveWorkoutScreen extends ConsumerWidget {
+class ActiveWorkoutScreen extends ConsumerStatefulWidget {
   const ActiveWorkoutScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ActiveWorkoutScreen> createState() =>
+      _ActiveWorkoutScreenState();
+}
+
+class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
+  bool _setsCollapsed = false;
+
+  void _collapseSets(bool collapsed) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _setsCollapsed == collapsed) return;
+      setState(() => _setsCollapsed = collapsed);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final activeWorkout = ref.watch(activeWorkoutProvider);
     if (activeWorkout == null) return const SizedBox();
 
@@ -40,44 +57,55 @@ class ActiveWorkoutScreen extends ConsumerWidget {
           ],
         ),
         leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () async {
-            final confirm = await showDialog<bool>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Discard Workout'),
-                content: const Text(
-                  'Are you sure you want to discard this workout? Your current progress will be lost.',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(false),
-                    child: const Text('Keep Lifting'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(true),
-                    child: const Text(
-                      'Discard Workout',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
-              ),
-            );
-            if (confirm == true) {
-              ref.read(activeWorkoutProvider.notifier).cancelWorkout();
-            }
-          },
+          tooltip: 'Back',
+          icon: const Icon(Icons.keyboard_arrow_down),
+          onPressed: () => Navigator.of(context).maybePop(),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Discard workout',
+            icon: const Icon(Icons.close),
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Discard Workout'),
+                  content: const Text(
+                    'Are you sure you want to discard this workout? Your current progress will be lost.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('Keep Lifting'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      child: const Text(
+                        'Discard Workout',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                ref.read(activeWorkoutProvider.notifier).cancelWorkout();
+                if (context.mounted) Navigator.of(context).maybePop();
+              }
+            },
+          ),
+        ],
       ),
       body: ReorderableListView.builder(
         padding: const EdgeInsets.only(bottom: 160),
         itemCount: activeWorkout.exercises.length,
-        onReorder: (oldIndex, newIndex) {
+        onReorderItem: (oldIndex, newIndex) {
           ref
               .read(activeWorkoutProvider.notifier)
               .reorderExercises(oldIndex, newIndex);
         },
+        onReorderStart: (_) => _collapseSets(true),
+        onReorderEnd: (_) => _collapseSets(false),
         proxyDecorator: (child, index, animation) {
           final exercise = activeWorkout.exercises[index];
           return Material(
@@ -95,9 +123,21 @@ class ActiveWorkoutScreen extends ConsumerWidget {
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  exercise.exerciseName?.toTitleCase() ?? 'Unknown',
-                  style: Theme.of(context).textTheme.titleLarge,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      exercise.exerciseName?.toTitleCase() ?? 'Unknown',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    Text(
+                      exercise.sets.length == 1
+                          ? '1 set'
+                          : '${exercise.sets.length} sets',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -109,6 +149,7 @@ class ActiveWorkoutScreen extends ConsumerWidget {
             key: ValueKey(exercise.exerciseId ?? index.toString()),
             exercise: exercise,
             exerciseIndex: index,
+            setsCollapsed: _setsCollapsed,
           );
         },
       ),
@@ -123,7 +164,16 @@ class ActiveWorkoutScreen extends ConsumerWidget {
               ),
             );
             if (result != null) {
-              ref.read(activeWorkoutProvider.notifier).addExercise(result);
+              final added = ref
+                  .read(activeWorkoutProvider.notifier)
+                  .addExercise(result);
+              if (!added && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('That exercise is already in this workout.'),
+                  ),
+                );
+              }
             }
           },
           label: const Text('Add Exercise'),
@@ -169,14 +219,23 @@ class ActiveWorkoutScreen extends ConsumerWidget {
                   final session = await ref
                       .read(activeWorkoutProvider.notifier)
                       .finishWorkout();
-                  if (session != null && context.mounted) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            WorkoutSummaryScreen(session: session),
+                  if (!context.mounted) return;
+                  if (session == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Could not save this workout. It is still open.',
+                        ),
                       ),
                     );
+                    return;
                   }
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          WorkoutSummaryScreen(session: session),
+                    ),
+                  );
                 },
                 child: const Text('FINISH WORKOUT'),
               ),
@@ -282,11 +341,13 @@ class _MediaControlPanelState extends State<_MediaControlPanel> {
 class _ActiveExerciseCard extends ConsumerWidget {
   final WorkoutExercise exercise;
   final int exerciseIndex;
+  final bool setsCollapsed;
 
   const _ActiveExerciseCard({
     super.key,
     required this.exercise,
     required this.exerciseIndex,
+    required this.setsCollapsed,
   });
 
   @override
@@ -297,11 +358,7 @@ class _ActiveExerciseCard extends ConsumerWidget {
 
     String ghostText = 'First time for this exercise!';
     if (prevExercise != null) {
-      final setsStr = prevExercise.sets.map((s) => '${s.reps}').join(', ');
-      final maxW = prevExercise.sets
-          .map((s) => s.weight)
-          .reduce((a, b) => a > b ? a : b);
-      ghostText = 'Last time: $maxW kg x $setsStr';
+      ghostText = formatLastSession(prevExercise);
     }
 
     return Card(
@@ -321,6 +378,30 @@ class _ActiveExerciseCard extends ConsumerWidget {
                   ),
                 ),
                 IconButton(
+                  icon: const Icon(Icons.swap_horiz),
+                  tooltip: 'Replace exercise',
+                  onPressed: () async {
+                    final Exercise? result = await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ExerciseSelectionScreen(),
+                      ),
+                    );
+                    if (result == null || !context.mounted) return;
+                    final replaced = ref
+                        .read(activeWorkoutProvider.notifier)
+                        .replaceExercise(exerciseIndex, result);
+                    if (!replaced && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'That exercise is already in this workout.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                IconButton(
                   icon: const Icon(Icons.delete, color: Colors.grey),
                   onPressed: () => ref
                       .read(activeWorkoutProvider.notifier)
@@ -328,67 +409,78 @@ class _ActiveExerciseCard extends ConsumerWidget {
                 ),
               ],
             ),
-            Text(
-              ghostText,
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 13,
-                fontStyle: FontStyle.italic,
+            if (setsCollapsed)
+              Text(
+                exercise.sets.length == 1
+                    ? '1 set'
+                    : '${exercise.sets.length} sets',
+                style: const TextStyle(color: Colors.grey),
+              )
+            else ...[
+              Text(
+                ghostText,
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Divider(),
-            const Row(
-              children: [
-                SizedBox(
-                  width: 40,
-                  child: Text(
-                    'SET',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold),
+              const SizedBox(height: 8),
+              const Divider(),
+              const Row(
+                children: [
+                  SizedBox(
+                    width: 40,
+                    child: Text(
+                      'SET',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: Text(
-                    'KG',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text(
+                      'KG',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: Text(
-                    'REPS',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text(
+                      'REPS',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-                SizedBox(width: 40, child: Icon(Icons.check)),
-                SizedBox(width: 40), // For delete icon
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...exercise.sets.asMap().entries.map((e) {
-              final setIndex = e.key;
-              final set = e.value;
-              WorkoutSet? ghostSet;
-              if (prevExercise != null && setIndex < prevExercise.sets.length) {
-                ghostSet = prevExercise.sets[setIndex];
-              }
-              return _ActiveSetRow(
-                exerciseIndex: exerciseIndex,
-                setIndex: setIndex,
-                workoutSet: set,
-                ghostSet: ghostSet,
-              );
-            }),
-            const SizedBox(height: 16),
-            TextButton.icon(
-              onPressed: () => ref
-                  .read(activeWorkoutProvider.notifier)
-                  .addSet(exerciseIndex),
-              icon: const Icon(Icons.add),
-              label: const Text('Add Set'),
-            ),
+                  SizedBox(width: 40, child: Icon(Icons.check)),
+                  SizedBox(width: 40), // For delete icon
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...exercise.sets.asMap().entries.map((e) {
+                final setIndex = e.key;
+                final set = e.value;
+                WorkoutSet? ghostSet;
+                if (prevExercise != null &&
+                    setIndex < prevExercise.sets.length) {
+                  ghostSet = prevExercise.sets[setIndex];
+                }
+                return _ActiveSetRow(
+                  key: ValueKey(set.id),
+                  exerciseIndex: exerciseIndex,
+                  setIndex: setIndex,
+                  workoutSet: set,
+                  ghostSet: ghostSet,
+                );
+              }),
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: () => ref
+                    .read(activeWorkoutProvider.notifier)
+                    .addSet(exerciseIndex),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Set'),
+              ),
+            ],
           ],
         ),
       ),
@@ -403,6 +495,7 @@ class _ActiveSetRow extends ConsumerStatefulWidget {
   final WorkoutSet? ghostSet;
 
   const _ActiveSetRow({
+    super.key,
     required this.exerciseIndex,
     required this.setIndex,
     required this.workoutSet,
@@ -423,9 +516,7 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
   void initState() {
     super.initState();
     _weightController = TextEditingController(
-      text: widget.workoutSet.weight == 0
-          ? ''
-          : widget.workoutSet.weight.toString(),
+      text: _formatWeight(widget.workoutSet.weight),
     );
     _repsController = TextEditingController(
       text: widget.workoutSet.reps == 0
@@ -447,7 +538,7 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
             .updateSet(
               widget.exerciseIndex,
               widget.setIndex,
-              weight: double.tryParse(_weightController.text) ?? 0.0,
+              weight: _parseWeight(_weightController.text),
             );
       }
     });
@@ -475,9 +566,7 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
     super.didUpdateWidget(oldWidget);
     if (!_weightFocus.hasFocus &&
         oldWidget.workoutSet.weight != widget.workoutSet.weight) {
-      _weightController.text = widget.workoutSet.weight == 0
-          ? ''
-          : widget.workoutSet.weight.toString();
+      _weightController.text = _formatWeight(widget.workoutSet.weight);
     }
     if (!_repsFocus.hasFocus &&
         oldWidget.workoutSet.reps != widget.workoutSet.reps) {
@@ -502,9 +591,14 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(
-            width: 40,
-            child: Text('${widget.setIndex + 1}', textAlign: TextAlign.center),
+          SetKindButton(
+            setNumber: widget.setIndex + 1,
+            kind: widget.workoutSet.kind,
+            onChanged: (kind) {
+              ref
+                  .read(activeWorkoutProvider.notifier)
+                  .updateSet(widget.exerciseIndex, widget.setIndex, kind: kind);
+            },
           ),
           Expanded(
             child: Padding(
@@ -512,7 +606,12 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
               child: TextFormField(
                 controller: _weightController,
                 focusNode: _weightFocus,
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                ],
                 textAlign: TextAlign.center,
                 decoration: InputDecoration(
                   hintText: widget.ghostSet != null
@@ -550,7 +649,7 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
                     : Colors.grey,
               ),
               onPressed: () {
-                double weight = double.tryParse(_weightController.text) ?? 0.0;
+                double weight = _parseWeight(_weightController.text);
                 int reps = int.tryParse(_repsController.text) ?? 0;
 
                 if (!widget.workoutSet.isCompleted &&
@@ -559,7 +658,7 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
                     widget.ghostSet != null) {
                   weight = widget.ghostSet!.weight;
                   reps = widget.ghostSet!.reps;
-                  _weightController.text = weight.toString();
+                  _weightController.text = _formatWeight(weight);
                   _repsController.text = reps.toString();
                 }
 
@@ -594,4 +693,31 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
       ),
     );
   }
+}
+
+double _parseWeight(String raw) {
+  final value = raw.trim().replaceAll(',', '.');
+  if (value.isEmpty) return 0;
+  return double.tryParse(value) ?? 0;
+}
+
+String _formatWeight(double weight) {
+  if (weight == 0) return '';
+  if (weight == weight.roundToDouble()) return weight.toInt().toString();
+  return weight.toString();
+}
+
+String formatLastSession(WorkoutExercise exercise) {
+  final parts = exercise.sets
+      .map((set) {
+        final weight = set.weight == set.weight.roundToDouble()
+            ? set.weight.toInt().toString()
+            : set.weight.toString();
+        final marker = set.kind == WorkoutSetKind.working
+            ? ''
+            : '${set.kind.shortLabel} ';
+        return '$marker$weight kg × ${set.reps}';
+      })
+      .join(', ');
+  return 'Last time: $parts';
 }

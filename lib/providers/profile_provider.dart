@@ -10,6 +10,10 @@ final bodyWeightProvider = FutureProvider<List<BodyWeightLog>>((ref) async {
   return logs;
 });
 
+final heightProvider = Provider<double>((ref) {
+  return Hive.box('settings').get('height', defaultValue: 170.0) as double;
+});
+
 final profileNotifierProvider = Provider<ProfileNotifier>((ref) {
   return ProfileNotifier(ref);
 });
@@ -26,11 +30,12 @@ class ProfileNotifier {
   }
 
   double getHeight() {
-    return Hive.box('settings').get('height', defaultValue: 170.0);
+    return ref.read(heightProvider);
   }
 
   Future<void> setHeight(double height) async {
     await Hive.box('settings').put('height', height);
+    ref.invalidate(heightProvider);
   }
 }
 
@@ -46,6 +51,62 @@ class ProgressionEntry {
   final int reps;
   ProgressionEntry(this.date, this.maxWeight, this.reps);
 }
+
+class TrackedExercise {
+  final String exerciseId;
+  final String exerciseName;
+  final DateTime lastPerformed;
+
+  TrackedExercise({
+    required this.exerciseId,
+    required this.exerciseName,
+    required this.lastPerformed,
+  });
+}
+
+bool _exerciseHasCompletedSets(WorkoutExercise exercise) {
+  return exercise.sets.any((set) => set.isCompleted);
+}
+
+/// Exercises that appear in history with at least one completed set,
+/// newest activity first.
+final trackedExercisesProvider = Provider<AsyncValue<List<TrackedExercise>>>((
+  ref,
+) {
+  final historyAsync = ref.watch(historyProvider);
+  return historyAsync.whenData((sessions) {
+    final latestById = <String, TrackedExercise>{};
+
+    for (final session in sessions) {
+      for (final exercise in session.exercises) {
+        final id = exercise.exerciseId;
+        final name = exercise.exerciseName;
+        if (id == null || name == null || name.isEmpty) continue;
+        if (!_exerciseHasCompletedSets(exercise)) continue;
+
+        final existing = latestById[id];
+        if (existing == null ||
+            session.startTime.isAfter(existing.lastPerformed)) {
+          latestById[id] = TrackedExercise(
+            exerciseId: id,
+            exerciseName: name,
+            lastPerformed: session.startTime,
+          );
+        }
+      }
+    }
+
+    final tracked = latestById.values.toList()
+      ..sort((a, b) => b.lastPerformed.compareTo(a.lastPerformed));
+    return tracked;
+  });
+});
+
+final recentTrackedExercisesProvider =
+    Provider<AsyncValue<List<TrackedExercise>>>((ref) {
+      final trackedAsync = ref.watch(trackedExercisesProvider);
+      return trackedAsync.whenData((tracked) => tracked.take(5).toList());
+    });
 
 final exerciseAnalyticsProvider =
     Provider.family<AsyncValue<ExerciseAnalytics?>, String?>((ref, exerciseId) {
@@ -66,7 +127,7 @@ final exerciseAnalyticsProvider =
               bool lifted = false;
 
               for (var set in ex.sets) {
-                if (set.isCompleted) {
+                if (set.countsTowardTotals) {
                   lifted = true;
                   if (set.weight > maxWeightInSession) {
                     maxWeightInSession = set.weight;

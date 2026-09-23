@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:larger/models/models.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 class BackupService {
@@ -12,6 +12,7 @@ class BackupService {
     final routinesBox = Hive.box<Routine>('routines');
     final sessionsBox = Hive.box<WorkoutSession>('sessions');
     final bodyWeightLogsBox = Hive.box<BodyWeightLog>('bodyWeightLogs');
+    final foodEntriesBox = Hive.box<FoodEntry>('foodEntries');
     final settingsBox = Hive.box('settings');
 
     final data = {
@@ -52,6 +53,7 @@ class BackupService {
                               'reps': set.reps,
                               'weight': set.weight,
                               'isCompleted': set.isCompleted,
+                              'kind': set.kind.name,
                             },
                           )
                           .toList(),
@@ -72,34 +74,58 @@ class BackupService {
             },
           )
           .toList(),
+      'foodEntries': foodEntriesBox.values
+          .map(
+            (f) => {
+              'id': f.id,
+              'name': f.name,
+              'meal': f.meal,
+              'loggedAt': f.loggedAt.toIso8601String(),
+              'servingLabel': f.servingLabel,
+              'servings': f.servings,
+              'calories': f.calories,
+              'proteinG': f.proteinG,
+              'carbsG': f.carbsG,
+              'fatG': f.fatG,
+              'source': f.source,
+            },
+          )
+          .toList(),
       'settings': settingsBox.toMap().map(
         (key, value) => MapEntry(key.toString(), value),
       ),
     };
 
     final jsonString = jsonEncode(data);
+    final bytes = utf8.encode(jsonString);
+    final fileName =
+        'larger_backup_${DateTime.now().toIso8601String().replaceAll(':', '-')}.json';
 
-    final directory = await getTemporaryDirectory();
-    final file = File(
-      '${directory.path}/larger_backup_${DateTime.now().toIso8601String().replaceAll(':', '-')}.json',
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [
+          XFile.fromData(bytes, mimeType: 'application/json', name: fileName),
+        ],
+        text: 'LarGer App Backup',
+        fileNameOverrides: [fileName],
+      ),
     );
-    await file.writeAsString(jsonString);
-
-    await Share.shareXFiles([XFile(file.path)], text: 'LarGer App Backup');
   }
 
   Future<bool> importData() async {
-    final result = await FilePicker.pickFiles(
+    final picked = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
 
-    if (result == null || result.files.single.path == null) {
-      return false; // User canceled
+    if (picked == null) {
+      return false;
     }
 
-    final file = File(result.files.single.path!);
-    final jsonString = await file.readAsString();
+    final jsonString = await _readPickedJson(picked);
+    if (jsonString == null) {
+      return false;
+    }
 
     try {
       final Map<String, dynamic> data = jsonDecode(jsonString);
@@ -108,13 +134,18 @@ class BackupService {
       final routinesBox = Hive.box<Routine>('routines');
       final sessionsBox = Hive.box<WorkoutSession>('sessions');
       final bodyWeightLogsBox = Hive.box<BodyWeightLog>('bodyWeightLogs');
+      final foodEntriesBox = Hive.box<FoodEntry>('foodEntries');
       final settingsBox = Hive.box('settings');
 
       // CRITICAL: Strict overwrite
       await exercisesBox.clear();
       await routinesBox.clear();
       await sessionsBox.clear();
+      if (Hive.isBoxOpen('activeWorkout')) {
+        await Hive.box<WorkoutSession>('activeWorkout').clear();
+      }
       await bodyWeightLogsBox.clear();
+      await foodEntriesBox.clear();
       await settingsBox.clear();
 
       // Restore Exercises
@@ -178,6 +209,9 @@ class BackupService {
                   ws.reps = setData['reps'] ?? 0;
                   ws.weight = (setData['weight'] ?? 0.0).toDouble();
                   ws.isCompleted = setData['isCompleted'] ?? false;
+                  ws.kind =
+                      WorkoutSetKind.values.asNameMap()[setData['kind']] ??
+                      WorkoutSetKind.working;
                   sets.add(ws);
                 }
               }
@@ -203,6 +237,25 @@ class BackupService {
         }
       }
 
+      if (data['foodEntries'] != null) {
+        for (var fData in data['foodEntries']) {
+          final entry = FoodEntry(
+            id: fData['id'],
+            name: fData['name'] ?? '',
+            meal: fData['meal'] ?? 'snack',
+            loggedAt: DateTime.parse(fData['loggedAt']),
+            servingLabel: fData['servingLabel'],
+            servings: (fData['servings'] ?? 1.0).toDouble(),
+            calories: (fData['calories'] as num?)?.toDouble(),
+            proteinG: (fData['proteinG'] as num?)?.toDouble(),
+            carbsG: (fData['carbsG'] as num?)?.toDouble(),
+            fatG: (fData['fatG'] as num?)?.toDouble(),
+            source: fData['source'] ?? 'manual',
+          );
+          await foodEntriesBox.put(entry.id, entry);
+        }
+      }
+
       // Restore Settings
       if (data['settings'] != null) {
         final settingsData = data['settings'] as Map<String, dynamic>;
@@ -213,8 +266,17 @@ class BackupService {
 
       return true;
     } catch (e) {
-      print('Error importing data: \$e');
+      debugPrint('Error importing data: $e');
       return false;
+    }
+  }
+
+  Future<String?> _readPickedJson(PlatformFile picked) async {
+    try {
+      final bytes = await picked.readAsBytes();
+      return utf8.decode(bytes);
+    } catch (_) {
+      return null;
     }
   }
 }

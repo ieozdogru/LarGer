@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:larger/models/models.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:larger/models/models.dart';
 import 'package:larger/providers/history_provider.dart';
 
 class ActiveWorkoutState {
@@ -30,7 +32,10 @@ class ActiveWorkoutState {
 class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
   final Ref ref;
 
-  ActiveWorkoutNotifier(this.ref) : super(null);
+  ActiveWorkoutNotifier(this.ref) : super(null) {
+    final restored = _readDraft();
+    if (restored != null) state = restored;
+  }
 
   void startWorkout({
     String? routineName,
@@ -41,13 +46,14 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
       startTime: DateTime.now(),
       exercises: preparedExercises ?? [],
     );
+    _persist();
   }
 
-  void addExercise(Exercise exercise) {
-    if (state == null) return;
+  bool addExercise(Exercise exercise) {
+    if (state == null) return false;
 
     if (state!.exercises.any((e) => e.exerciseId == exercise.id)) {
-      return;
+      return false;
     }
 
     final newExercise = WorkoutExercise()
@@ -56,6 +62,28 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
       ..sets = [WorkoutSet()];
 
     state = state!.copyWith(exercises: [...state!.exercises, newExercise]);
+    _persist();
+    return true;
+  }
+
+  bool replaceExercise(int exerciseIndex, Exercise exercise) {
+    if (state == null) return false;
+    final alreadyThere = state!.exercises.asMap().entries.any(
+      (entry) =>
+          entry.key != exerciseIndex && entry.value.exerciseId == exercise.id,
+    );
+    if (alreadyThere) return false;
+
+    final exercises = List<WorkoutExercise>.from(state!.exercises);
+    final current = exercises[exerciseIndex];
+    exercises[exerciseIndex] = WorkoutExercise()
+      ..exerciseId = exercise.id
+      ..exerciseName = exercise.name
+      ..sets = current.sets
+      ..notes = current.notes;
+    state = state!.copyWith(exercises: exercises);
+    _persist();
+    return true;
   }
 
   void addSet(int exerciseIndex) {
@@ -66,17 +94,14 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
     final lastSet = sets.isNotEmpty ? sets.last : null;
     final newSet = WorkoutSet()
       ..reps = lastSet?.reps ?? 0
-      ..weight = lastSet?.weight ?? 0.0;
+      ..weight = lastSet?.weight ?? 0.0
+      ..kind = lastSet?.kind ?? WorkoutSetKind.working;
 
     sets.add(newSet);
 
-    final newExercise = WorkoutExercise()
-      ..exerciseId = exercises[exerciseIndex].exerciseId
-      ..exerciseName = exercises[exerciseIndex].exerciseName
-      ..sets = sets;
-
-    exercises[exerciseIndex] = newExercise;
+    exercises[exerciseIndex] = _copyExercise(exercises[exerciseIndex], sets);
     state = state!.copyWith(exercises: exercises);
+    _persist();
   }
 
   void updateSet(
@@ -85,28 +110,24 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
     int? reps,
     double? weight,
     bool? isCompleted,
+    WorkoutSetKind? kind,
   }) {
     if (state == null) return;
     final exercises = List<WorkoutExercise>.from(state!.exercises);
     final sets = List<WorkoutSet>.from(exercises[exerciseIndex].sets);
 
-    // Create a new instance instead of mutating the old one so Riverpod detects the state change properly
     final currentSet = sets[setIndex];
-    final newSet = WorkoutSet()
-      ..reps = reps ?? currentSet.reps
-      ..weight = weight ?? currentSet.weight
-      ..isCompleted = isCompleted ?? currentSet.isCompleted;
+    sets[setIndex] = _copySet(
+      currentSet,
+      reps: reps,
+      weight: weight,
+      isCompleted: isCompleted,
+      kind: kind,
+    );
 
-    sets[setIndex] = newSet;
-
-    // Also copy the exercise to prevent mutating it
-    final newExercise = WorkoutExercise()
-      ..exerciseId = exercises[exerciseIndex].exerciseId
-      ..exerciseName = exercises[exerciseIndex].exerciseName
-      ..sets = sets;
-
-    exercises[exerciseIndex] = newExercise;
+    exercises[exerciseIndex] = _copyExercise(exercises[exerciseIndex], sets);
     state = state!.copyWith(exercises: exercises);
+    _persist();
   }
 
   void removeSet(int exerciseIndex, int setIndex) {
@@ -115,13 +136,9 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
     final sets = List<WorkoutSet>.from(exercises[exerciseIndex].sets);
     sets.removeAt(setIndex);
 
-    final newExercise = WorkoutExercise()
-      ..exerciseId = exercises[exerciseIndex].exerciseId
-      ..exerciseName = exercises[exerciseIndex].exerciseName
-      ..sets = sets;
-
-    exercises[exerciseIndex] = newExercise;
+    exercises[exerciseIndex] = _copyExercise(exercises[exerciseIndex], sets);
     state = state!.copyWith(exercises: exercises);
+    _persist();
   }
 
   void removeExercise(int exerciseIndex) {
@@ -129,21 +146,37 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
     final exercises = List<WorkoutExercise>.from(state!.exercises);
     exercises.removeAt(exerciseIndex);
     state = state!.copyWith(exercises: exercises);
+    _persist();
   }
 
   void reorderExercises(int oldIndex, int newIndex) {
     if (state == null) return;
     final exercises = List<WorkoutExercise>.from(state!.exercises);
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
     final item = exercises.removeAt(oldIndex);
     exercises.insert(newIndex, item);
     state = state!.copyWith(exercises: exercises);
+    _persist();
   }
 
   void cancelWorkout() {
     state = null;
+    _persist();
+  }
+
+  void _persist() {
+    if (!Hive.isBoxOpen('activeWorkout')) return;
+    final box = Hive.box<WorkoutSession>('activeWorkout');
+    final current = state;
+    if (current == null) {
+      box.delete(_activeDraftId);
+      return;
+    }
+    final draft = WorkoutSession(id: _activeDraftId)
+      ..routineName = current.routineName
+      ..startTime = current.startTime
+      ..exercises = current.exercises
+      ..isCompleted = false;
+    box.put(_activeDraftId, draft);
   }
 
   Future<WorkoutSession?> finishWorkout() async {
@@ -155,7 +188,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
       double totalVolume = 0.0;
       for (var ex in state!.exercises) {
         for (var s in ex.sets) {
-          if (s.isCompleted) {
+          if (s.countsTowardTotals) {
             totalVolume += (s.reps * s.weight);
           }
         }
@@ -175,9 +208,10 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
       ref.invalidate(historyProvider);
 
       state = null;
+      _persist();
       return session;
     } catch (e) {
-      print('Error saving workout to Hive: $e');
+      debugPrint('Error saving workout to Hive: $e');
       return null;
     }
   }
@@ -187,3 +221,38 @@ final activeWorkoutProvider =
     StateNotifierProvider<ActiveWorkoutNotifier, ActiveWorkoutState?>((ref) {
       return ActiveWorkoutNotifier(ref);
     });
+
+WorkoutSet _copySet(
+  WorkoutSet set, {
+  int? reps,
+  double? weight,
+  bool? isCompleted,
+  WorkoutSetKind? kind,
+}) {
+  return WorkoutSet(id: set.id)
+    ..reps = reps ?? set.reps
+    ..weight = weight ?? set.weight
+    ..isCompleted = isCompleted ?? set.isCompleted
+    ..kind = kind ?? set.kind;
+}
+
+WorkoutExercise _copyExercise(WorkoutExercise exercise, List<WorkoutSet> sets) {
+  return WorkoutExercise()
+    ..exerciseId = exercise.exerciseId
+    ..exerciseName = exercise.exerciseName
+    ..sets = sets
+    ..notes = exercise.notes;
+}
+
+const _activeDraftId = 'active-draft';
+
+ActiveWorkoutState? _readDraft() {
+  if (!Hive.isBoxOpen('activeWorkout')) return null;
+  final draft = Hive.box<WorkoutSession>('activeWorkout').get(_activeDraftId);
+  if (draft == null) return null;
+  return ActiveWorkoutState(
+    routineName: draft.routineName,
+    startTime: draft.startTime,
+    exercises: List<WorkoutExercise>.from(draft.exercises),
+  );
+}

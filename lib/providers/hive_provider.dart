@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:larger/models/models.dart';
+import 'package:larger/services/dev_sample_data.dart';
 
 Future<void> initHive() async {
   await Hive.initFlutter();
@@ -12,11 +13,15 @@ Future<void> initHive() async {
   Hive.registerAdapter(WorkoutSessionAdapter());
   Hive.registerAdapter(BodyWeightLogAdapter());
   Hive.registerAdapter(RoutineExerciseAdapter());
+  Hive.registerAdapter(FoodEntryAdapter());
+  Hive.registerAdapter(WorkoutSetKindAdapter());
 
   await Hive.openBox<Exercise>('exercises');
   await Hive.openBox<Routine>('routines');
   await Hive.openBox<WorkoutSession>('sessions');
+  await Hive.openBox<WorkoutSession>('activeWorkout');
   await Hive.openBox<BodyWeightLog>('bodyWeightLogs');
+  await Hive.openBox<FoodEntry>('foodEntries');
   await Hive.openBox('settings');
 
   final exerciseBox = Hive.box<Exercise>('exercises');
@@ -137,6 +142,8 @@ Future<void> initHive() async {
       await exerciseBox.put(ex.id, ex);
     }
   }
+
+  await seedDevSampleDataIfNeeded();
 }
 
 final hiveInitProvider = FutureProvider<void>((ref) async {

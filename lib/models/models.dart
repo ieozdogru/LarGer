@@ -50,6 +50,45 @@ class WorkoutSet {
 
   @HiveField(2)
   bool isCompleted = false;
+
+  @HiveField(3)
+  late String id;
+
+  @HiveField(4, defaultValue: WorkoutSetKind.working)
+  WorkoutSetKind kind = WorkoutSetKind.working;
+
+  WorkoutSet({String? id}) {
+    this.id = id ?? uuid.v4();
+  }
+
+  /// Warmup sets are logged, and left out of volume and PRs.
+  bool get countsTowardTotals => isCompleted && kind != WorkoutSetKind.warmup;
+}
+
+@HiveType(typeId: 8)
+enum WorkoutSetKind {
+  @HiveField(0)
+  working,
+  @HiveField(1)
+  warmup,
+  @HiveField(2)
+  failure,
+  @HiveField(3)
+  drop;
+
+  String get shortLabel => switch (this) {
+    WorkoutSetKind.working => '',
+    WorkoutSetKind.warmup => 'W',
+    WorkoutSetKind.failure => 'F',
+    WorkoutSetKind.drop => 'D',
+  };
+
+  String get menuLabel => switch (this) {
+    WorkoutSetKind.working => 'Working set',
+    WorkoutSetKind.warmup => 'Warmup',
+    WorkoutSetKind.failure => 'Failure',
+    WorkoutSetKind.drop => 'Drop set',
+  };
 }
 
 @HiveType(typeId: 3)
@@ -123,4 +162,66 @@ class RoutineExercise {
   int targetSets;
 
   RoutineExercise({required this.exerciseId, required this.targetSets});
+}
+
+@HiveType(typeId: 7)
+class FoodEntry extends HiveObject {
+  @HiveField(0)
+  late String id;
+
+  @HiveField(1)
+  late String name;
+
+  @HiveField(2)
+  late String meal;
+
+  @HiveField(3)
+  late DateTime loggedAt;
+
+  @HiveField(4)
+  String? servingLabel;
+
+  @HiveField(5)
+  late double servings;
+
+  @HiveField(6)
+  double? calories;
+
+  @HiveField(7)
+  double? proteinG;
+
+  @HiveField(8)
+  double? carbsG;
+
+  @HiveField(9)
+  double? fatG;
+
+  @HiveField(10)
+  late String source;
+
+  FoodEntry({
+    String? id,
+    required this.name,
+    required this.meal,
+    required this.loggedAt,
+    this.servingLabel,
+    this.servings = 1,
+    this.calories,
+    this.proteinG,
+    this.carbsG,
+    this.fatG,
+    this.source = 'manual',
+  }) {
+    this.id = id ?? uuid.v4();
+  }
+
+  double? get totalCalories => _scaled(calories);
+  double? get totalProteinG => _scaled(proteinG);
+  double? get totalCarbsG => _scaled(carbsG);
+  double? get totalFatG => _scaled(fatG);
+
+  double? _scaled(double? value) {
+    if (value == null) return null;
+    return value * servings;
+  }
 }
