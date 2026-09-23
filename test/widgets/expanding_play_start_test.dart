@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive/hive.dart';
+import 'package:larger/models/models.dart';
 import 'package:larger/theme/app_theme.dart';
 import 'package:larger/widgets/expanding_play_start.dart';
 
@@ -38,13 +40,52 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Start empty workout'), findsOneWidget);
+    expect(find.byIcon(Icons.keyboard_arrow_down), findsNothing);
     expect(_dimBlackSurfaces(tester), isEmpty);
+  });
+
+  testWidgets('play menu shows a scroll hint when routines overflow', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final box = Hive.box<Routine>('routines');
+      for (var i = 0; i < 4; i++) {
+        final routine = Routine(name: 'Routine $i');
+        await box.put(routine.id, routine);
+      }
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.themeData,
+          home: const Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 280,
+              child: ExpandingPlayStart(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.byIcon(Icons.play_arrow_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byIcon(Icons.keyboard_arrow_down), findsOneWidget);
+    expect(find.text('Routine 0'), findsOneWidget);
   });
 }
 
 List<Color> _dimBlackSurfaces(WidgetTester tester) {
   final colors = <Color>[];
-  for (final container in tester.widgetList<Container>(find.byType(Container))) {
+  for (final container in tester.widgetList<Container>(
+    find.byType(Container),
+  )) {
     final color = container.color;
     if (color != null && _isDimBlack(color)) colors.add(color);
     final decoration = container.decoration;

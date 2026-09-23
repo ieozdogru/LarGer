@@ -178,7 +178,7 @@ class _ExpandingPlayStartState extends ConsumerState<ExpandingPlayStart>
   }
 }
 
-class _PlayMenu extends StatelessWidget {
+class _PlayMenu extends StatefulWidget {
   final List<Routine> routines;
   final VoidCallback onStartEmpty;
   final ValueChanged<Routine> onStartRoutine;
@@ -192,40 +192,113 @@ class _PlayMenu extends StatelessWidget {
   });
 
   @override
+  State<_PlayMenu> createState() => _PlayMenuState();
+}
+
+class _PlayMenuState extends State<_PlayMenu> {
+  final ScrollController _scrollController = ScrollController();
+  bool _canScrollDown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_syncScrollHint);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncScrollHint());
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_syncScrollHint);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _syncScrollHint() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final canScrollDown =
+        position.maxScrollExtent > 1 &&
+        position.pixels < position.maxScrollExtent - 1;
+    if (canScrollDown == _canScrollDown) return;
+    setState(() => _canScrollDown = canScrollDown);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(
-              Icons.fitness_center,
-              color: AppTheme.accentRed,
-            ),
-            title: const Text('Start empty workout'),
-            onTap: onStartEmpty,
-          ),
-          if (routines.isNotEmpty) ...[
-            const Divider(height: 1),
-            ...routines.map(
-              (routine) => ListTile(
-                leading: const Icon(Icons.play_circle_outline),
-                title: Text(routine.name),
-                subtitle: Text('${routine.exercises.length} exercises'),
-                onTap: () => onStartRoutine(routine),
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          controller: _scrollController,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(
+                  Icons.fitness_center,
+                  color: AppTheme.accentRed,
+                ),
+                title: const Text('Start empty workout'),
+                onTap: widget.onStartEmpty,
               ),
-            ),
-          ],
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.list_alt),
-            title: Text(
-              routines.isEmpty ? 'Create / manage routines' : 'Manage routines',
-            ),
-            onTap: onManage,
+              if (widget.routines.isNotEmpty) ...[
+                const Divider(height: 1),
+                ...widget.routines.map(
+                  (routine) => ListTile(
+                    leading: const Icon(Icons.play_circle_outline),
+                    title: Text(routine.name),
+                    subtitle: Text('${routine.exercises.length} exercises'),
+                    onTap: () => widget.onStartRoutine(routine),
+                  ),
+                ),
+              ],
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.list_alt),
+                title: Text(
+                  widget.routines.isEmpty
+                      ? 'Create / manage routines'
+                      : 'Manage routines',
+                ),
+                onTap: widget.onManage,
+              ),
+            ],
           ),
-        ],
+        ),
+        if (_canScrollDown)
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(child: _ScrollHint()),
+          ),
+      ],
+    );
+  }
+}
+
+class _ScrollHint extends StatelessWidget {
+  const _ScrollHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 36,
+      alignment: Alignment.bottomCenter,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppTheme.surfaceColor.withValues(alpha: 0),
+            AppTheme.surfaceColor,
+          ],
+        ),
+      ),
+      child: const Icon(
+        Icons.keyboard_arrow_down,
+        color: Colors.white70,
+        size: 20,
       ),
     );
   }
