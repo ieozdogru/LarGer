@@ -78,9 +78,7 @@ class _ExpandingPlayStartState extends ConsumerState<ExpandingPlayStart>
                   behavior: HitTestBehavior.opaque,
                   child: FadeTransition(
                     opacity: _menuFade,
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 0.55),
-                    ),
+                    child: const SizedBox.expand(),
                   ),
                 ),
               ),
