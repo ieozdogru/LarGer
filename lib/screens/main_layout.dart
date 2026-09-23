@@ -7,7 +7,7 @@ import 'package:larger/screens/history_screen.dart';
 import 'package:larger/screens/today_screen.dart';
 import 'package:larger/screens/active_workout_screen.dart';
 import 'package:larger/screens/welcome_screen.dart';
-import 'package:larger/theme/app_theme.dart';
+import 'package:larger/widgets/app_tab_bar.dart';
 import 'package:larger/widgets/startup_splash.dart';
 import 'package:larger/widgets/welcome_farewell.dart';
 
@@ -63,53 +63,15 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           _KeptPage(child: FoodScreen()),
         ],
       ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (activeWorkout != null)
-            Material(
-              color: AppTheme.surfaceColor,
-              child: ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.fitness_center,
-                  color: AppTheme.accentRed,
-                ),
-                title: Text(activeWorkout.routineName ?? 'Workout in progress'),
-                trailing: const Text(
-                  'Resume',
-                  style: TextStyle(
-                    color: AppTheme.accentRed,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+      bottomNavigationBar: AppTabBar(
+        selectedIndex: _currentIndex,
+        onSelected: _goToPage,
+        resume: activeWorkout == null
+            ? null
+            : WorkoutResumeBar(
+                title: activeWorkout.routineName ?? 'Workout in progress',
                 onTap: _resumeWorkout,
               ),
-            ),
-          NavigationBar(
-            selectedIndex: _currentIndex,
-            onDestinationSelected: _goToPage,
-            backgroundColor: AppTheme.surfaceColor,
-            indicatorColor: AppTheme.accentRed.withValues(alpha: 0.2),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.history_outlined),
-                selectedIcon: Icon(Icons.history, color: AppTheme.accentRed),
-                label: 'History',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.today_outlined),
-                selectedIcon: Icon(Icons.today, color: AppTheme.accentRed),
-                label: 'Today',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.restaurant_outlined),
-                selectedIcon: Icon(Icons.restaurant, color: AppTheme.accentRed),
-                label: 'Food',
-              ),
-            ],
-          ),
-        ],
       ),
     );
 
