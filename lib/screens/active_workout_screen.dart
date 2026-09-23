@@ -11,11 +11,26 @@ import 'dart:async';
 import 'package:larger/utils/string_extensions.dart';
 import 'package:larger/widgets/set_kind_button.dart';
 
-class ActiveWorkoutScreen extends ConsumerWidget {
+class ActiveWorkoutScreen extends ConsumerStatefulWidget {
   const ActiveWorkoutScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ActiveWorkoutScreen> createState() =>
+      _ActiveWorkoutScreenState();
+}
+
+class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
+  bool _setsCollapsed = false;
+
+  void _collapseSets(bool collapsed) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _setsCollapsed == collapsed) return;
+      setState(() => _setsCollapsed = collapsed);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final activeWorkout = ref.watch(activeWorkoutProvider);
     if (activeWorkout == null) return const SizedBox();
 
@@ -89,6 +104,8 @@ class ActiveWorkoutScreen extends ConsumerWidget {
               .read(activeWorkoutProvider.notifier)
               .reorderExercises(oldIndex, newIndex);
         },
+        onReorderStart: (_) => _collapseSets(true),
+        onReorderEnd: (_) => _collapseSets(false),
         proxyDecorator: (child, index, animation) {
           final exercise = activeWorkout.exercises[index];
           return Material(
@@ -106,9 +123,21 @@ class ActiveWorkoutScreen extends ConsumerWidget {
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  exercise.exerciseName?.toTitleCase() ?? 'Unknown',
-                  style: Theme.of(context).textTheme.titleLarge,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      exercise.exerciseName?.toTitleCase() ?? 'Unknown',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    Text(
+                      exercise.sets.length == 1
+                          ? '1 set'
+                          : '${exercise.sets.length} sets',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -120,6 +149,7 @@ class ActiveWorkoutScreen extends ConsumerWidget {
             key: ValueKey(exercise.exerciseId ?? index.toString()),
             exercise: exercise,
             exerciseIndex: index,
+            setsCollapsed: _setsCollapsed,
           );
         },
       ),
@@ -311,11 +341,13 @@ class _MediaControlPanelState extends State<_MediaControlPanel> {
 class _ActiveExerciseCard extends ConsumerWidget {
   final WorkoutExercise exercise;
   final int exerciseIndex;
+  final bool setsCollapsed;
 
   const _ActiveExerciseCard({
     super.key,
     required this.exercise,
     required this.exerciseIndex,
+    required this.setsCollapsed,
   });
 
   @override
@@ -377,68 +409,78 @@ class _ActiveExerciseCard extends ConsumerWidget {
                 ),
               ],
             ),
-            Text(
-              ghostText,
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 13,
-                fontStyle: FontStyle.italic,
+            if (setsCollapsed)
+              Text(
+                exercise.sets.length == 1
+                    ? '1 set'
+                    : '${exercise.sets.length} sets',
+                style: const TextStyle(color: Colors.grey),
+              )
+            else ...[
+              Text(
+                ghostText,
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Divider(),
-            const Row(
-              children: [
-                SizedBox(
-                  width: 40,
-                  child: Text(
-                    'SET',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold),
+              const SizedBox(height: 8),
+              const Divider(),
+              const Row(
+                children: [
+                  SizedBox(
+                    width: 40,
+                    child: Text(
+                      'SET',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: Text(
-                    'KG',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text(
+                      'KG',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: Text(
-                    'REPS',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text(
+                      'REPS',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-                SizedBox(width: 40, child: Icon(Icons.check)),
-                SizedBox(width: 40), // For delete icon
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...exercise.sets.asMap().entries.map((e) {
-              final setIndex = e.key;
-              final set = e.value;
-              WorkoutSet? ghostSet;
-              if (prevExercise != null && setIndex < prevExercise.sets.length) {
-                ghostSet = prevExercise.sets[setIndex];
-              }
-              return _ActiveSetRow(
-                key: ValueKey(set.id),
-                exerciseIndex: exerciseIndex,
-                setIndex: setIndex,
-                workoutSet: set,
-                ghostSet: ghostSet,
-              );
-            }),
-            const SizedBox(height: 16),
-            TextButton.icon(
-              onPressed: () => ref
-                  .read(activeWorkoutProvider.notifier)
-                  .addSet(exerciseIndex),
-              icon: const Icon(Icons.add),
-              label: const Text('Add Set'),
-            ),
+                  SizedBox(width: 40, child: Icon(Icons.check)),
+                  SizedBox(width: 40), // For delete icon
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...exercise.sets.asMap().entries.map((e) {
+                final setIndex = e.key;
+                final set = e.value;
+                WorkoutSet? ghostSet;
+                if (prevExercise != null &&
+                    setIndex < prevExercise.sets.length) {
+                  ghostSet = prevExercise.sets[setIndex];
+                }
+                return _ActiveSetRow(
+                  key: ValueKey(set.id),
+                  exerciseIndex: exerciseIndex,
+                  setIndex: setIndex,
+                  workoutSet: set,
+                  ghostSet: ghostSet,
+                );
+              }),
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: () => ref
+                    .read(activeWorkoutProvider.notifier)
+                    .addSet(exerciseIndex),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Set'),
+              ),
+            ],
           ],
         ),
       ),
