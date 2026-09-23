@@ -54,9 +54,41 @@ class WorkoutSet {
   @HiveField(3)
   late String id;
 
+  @HiveField(4, defaultValue: WorkoutSetKind.working)
+  WorkoutSetKind kind = WorkoutSetKind.working;
+
   WorkoutSet({String? id}) {
     this.id = id ?? uuid.v4();
   }
+
+  /// Warmup sets are logged, and left out of volume and PRs.
+  bool get countsTowardTotals => isCompleted && kind != WorkoutSetKind.warmup;
+}
+
+@HiveType(typeId: 8)
+enum WorkoutSetKind {
+  @HiveField(0)
+  working,
+  @HiveField(1)
+  warmup,
+  @HiveField(2)
+  failure,
+  @HiveField(3)
+  drop;
+
+  String get shortLabel => switch (this) {
+    WorkoutSetKind.working => '',
+    WorkoutSetKind.warmup => 'W',
+    WorkoutSetKind.failure => 'F',
+    WorkoutSetKind.drop => 'D',
+  };
+
+  String get menuLabel => switch (this) {
+    WorkoutSetKind.working => 'Working set',
+    WorkoutSetKind.warmup => 'Warmup',
+    WorkoutSetKind.failure => 'Failure',
+    WorkoutSetKind.drop => 'Drop set',
+  };
 }
 
 @HiveType(typeId: 3)

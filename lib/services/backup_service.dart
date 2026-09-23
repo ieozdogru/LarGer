@@ -53,6 +53,7 @@ class BackupService {
                               'reps': set.reps,
                               'weight': set.weight,
                               'isCompleted': set.isCompleted,
+                              'kind': set.kind.name,
                             },
                           )
                           .toList(),
@@ -103,11 +104,7 @@ class BackupService {
     await SharePlus.instance.share(
       ShareParams(
         files: [
-          XFile.fromData(
-            bytes,
-            mimeType: 'application/json',
-            name: fileName,
-          ),
+          XFile.fromData(bytes, mimeType: 'application/json', name: fileName),
         ],
         text: 'LarGer App Backup',
         fileNameOverrides: [fileName],
@@ -212,6 +209,9 @@ class BackupService {
                   ws.reps = setData['reps'] ?? 0;
                   ws.weight = (setData['weight'] ?? 0.0).toDouble();
                   ws.isCompleted = setData['isCompleted'] ?? false;
+                  ws.kind =
+                      WorkoutSetKind.values.asNameMap()[setData['kind']] ??
+                      WorkoutSetKind.working;
                   sets.add(ws);
                 }
               }

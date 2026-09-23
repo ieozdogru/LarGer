@@ -102,12 +102,11 @@ final trackedExercisesProvider = Provider<AsyncValue<List<TrackedExercise>>>((
   });
 });
 
-final recentTrackedExercisesProvider = Provider<AsyncValue<List<TrackedExercise>>>((
-  ref,
-) {
-  final trackedAsync = ref.watch(trackedExercisesProvider);
-  return trackedAsync.whenData((tracked) => tracked.take(5).toList());
-});
+final recentTrackedExercisesProvider =
+    Provider<AsyncValue<List<TrackedExercise>>>((ref) {
+      final trackedAsync = ref.watch(trackedExercisesProvider);
+      return trackedAsync.whenData((tracked) => tracked.take(5).toList());
+    });
 
 final exerciseAnalyticsProvider =
     Provider.family<AsyncValue<ExerciseAnalytics?>, String?>((ref, exerciseId) {
@@ -128,7 +127,7 @@ final exerciseAnalyticsProvider =
               bool lifted = false;
 
               for (var set in ex.sets) {
-                if (set.isCompleted) {
+                if (set.countsTowardTotals) {
                   lifted = true;
                   if (set.weight > maxWeightInSession) {
                     maxWeightInSession = set.weight;

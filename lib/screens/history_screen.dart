@@ -295,7 +295,9 @@ class _WorkoutDetailScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Set ${setIndex + 1}',
+                            set.kind == WorkoutSetKind.working
+                                ? 'Set ${setIndex + 1}'
+                                : 'Set ${setIndex + 1} · ${set.kind.menuLabel}',
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(

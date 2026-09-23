@@ -16,4 +16,23 @@ void main() {
 
     expect(formatLastSession(exercise), 'Last time: 100 kg × 5, 80 kg × 8');
   });
+
+  test('last session line marks sets that are not working sets', () {
+    final exercise = WorkoutExercise()
+      ..sets = [
+        WorkoutSet()
+          ..reps = 10
+          ..weight = 20
+          ..kind = WorkoutSetKind.warmup,
+        WorkoutSet()
+          ..reps = 5
+          ..weight = 100
+          ..kind = WorkoutSetKind.drop,
+      ];
+
+    expect(
+      formatLastSession(exercise),
+      'Last time: W 20 kg × 10, D 100 kg × 5',
+    );
+  });
 }

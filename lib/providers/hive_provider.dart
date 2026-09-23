@@ -14,6 +14,7 @@ Future<void> initHive() async {
   Hive.registerAdapter(BodyWeightLogAdapter());
   Hive.registerAdapter(RoutineExerciseAdapter());
   Hive.registerAdapter(FoodEntryAdapter());
+  Hive.registerAdapter(WorkoutSetKindAdapter());
 
   await Hive.openBox<Exercise>('exercises');
   await Hive.openBox<Routine>('routines');

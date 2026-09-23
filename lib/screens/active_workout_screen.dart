@@ -9,6 +9,7 @@ import 'package:larger/screens/workout_summary_screen.dart';
 import 'package:larger/services/media_controller.dart';
 import 'dart:async';
 import 'package:larger/utils/string_extensions.dart';
+import 'package:larger/widgets/set_kind_button.dart';
 
 class ActiveWorkoutScreen extends ConsumerWidget {
   const ActiveWorkoutScreen({super.key});
@@ -548,9 +549,14 @@ class _ActiveSetRowState extends ConsumerState<_ActiveSetRow> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(
-            width: 40,
-            child: Text('${widget.setIndex + 1}', textAlign: TextAlign.center),
+          SetKindButton(
+            setNumber: widget.setIndex + 1,
+            kind: widget.workoutSet.kind,
+            onChanged: (kind) {
+              ref
+                  .read(activeWorkoutProvider.notifier)
+                  .updateSet(widget.exerciseIndex, widget.setIndex, kind: kind);
+            },
           ),
           Expanded(
             child: Padding(
@@ -665,7 +671,10 @@ String formatLastSession(WorkoutExercise exercise) {
         final weight = set.weight == set.weight.roundToDouble()
             ? set.weight.toInt().toString()
             : set.weight.toString();
-        return '$weight kg × ${set.reps}';
+        final marker = set.kind == WorkoutSetKind.working
+            ? ''
+            : '${set.kind.shortLabel} ';
+        return '$marker$weight kg × ${set.reps}';
       })
       .join(', ');
   return 'Last time: $parts';

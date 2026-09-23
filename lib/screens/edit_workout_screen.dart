@@ -5,6 +5,7 @@ import 'package:larger/models/models.dart';
 import 'package:larger/providers/history_provider.dart';
 import 'package:larger/utils/string_extensions.dart';
 import 'package:larger/screens/exercise_selection_screen.dart';
+import 'package:larger/widgets/set_kind_button.dart';
 
 class EditWorkoutScreen extends ConsumerStatefulWidget {
   final WorkoutSession session;
@@ -40,7 +41,8 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
                 (s) => WorkoutSet()
                   ..reps = s.reps
                   ..weight = s.weight
-                  ..isCompleted = s.isCompleted,
+                  ..isCompleted = s.isCompleted
+                  ..kind = s.kind,
               )
               .toList();
       }).toList();
@@ -66,7 +68,7 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
     double totalVolume = 0.0;
     for (var ex in _editableSession.exercises) {
       for (var s in ex.sets) {
-        if (s.isCompleted) {
+        if (s.countsTowardTotals) {
           totalVolume += (s.reps * s.weight);
         }
       }
@@ -292,11 +294,12 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
                     return _EditSetRow(
                       setIndex: setIndex,
                       workoutSet: set,
-                      onUpdate: (weight, reps, isCompleted) {
+                      onUpdate: (weight, reps, isCompleted, kind) {
                         setState(() {
                           set.weight = weight ?? set.weight;
                           set.reps = reps ?? set.reps;
                           set.isCompleted = isCompleted ?? set.isCompleted;
+                          set.kind = kind ?? set.kind;
                         });
                       },
                       onRemove: () {
@@ -316,7 +319,8 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
                         exercise.sets.add(
                           WorkoutSet()
                             ..reps = lastSet?.reps ?? 0
-                            ..weight = lastSet?.weight ?? 0.0,
+                            ..weight = lastSet?.weight ?? 0.0
+                            ..kind = lastSet?.kind ?? WorkoutSetKind.working,
                         );
                       });
                     },
@@ -375,7 +379,13 @@ class _EditWorkoutScreenState extends ConsumerState<EditWorkoutScreen> {
 class _EditSetRow extends StatefulWidget {
   final int setIndex;
   final WorkoutSet workoutSet;
-  final void Function(double? weight, int? reps, bool? isCompleted) onUpdate;
+  final void Function(
+    double? weight,
+    int? reps,
+    bool? isCompleted,
+    WorkoutSetKind? kind,
+  )
+  onUpdate;
   final VoidCallback? onRemove;
 
   const _EditSetRow({
@@ -422,6 +432,7 @@ class _EditSetRowState extends State<_EditSetRow> {
           double.tryParse(_weightController.text) ?? 0.0,
           null,
           null,
+          null,
         );
       }
     });
@@ -433,7 +444,12 @@ class _EditSetRowState extends State<_EditSetRow> {
           extentOffset: _repsController.text.length,
         );
       } else {
-        widget.onUpdate(null, int.tryParse(_repsController.text) ?? 0, null);
+        widget.onUpdate(
+          null,
+          int.tryParse(_repsController.text) ?? 0,
+          null,
+          null,
+        );
       }
     });
   }
@@ -453,9 +469,10 @@ class _EditSetRowState extends State<_EditSetRow> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(
-            width: 40,
-            child: Text('${widget.setIndex + 1}', textAlign: TextAlign.center),
+          SetKindButton(
+            setNumber: widget.setIndex + 1,
+            kind: widget.workoutSet.kind,
+            onChanged: (kind) => widget.onUpdate(null, null, null, kind),
           ),
           Expanded(
             child: Padding(
@@ -497,6 +514,7 @@ class _EditSetRowState extends State<_EditSetRow> {
                   double.tryParse(_weightController.text),
                   int.tryParse(_repsController.text),
                   !widget.workoutSet.isCompleted,
+                  null,
                 );
               },
             ),

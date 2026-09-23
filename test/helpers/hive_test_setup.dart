@@ -71,6 +71,9 @@ Future<void> setUpHiveForTests() async {
   if (!Hive.isAdapterRegistered(7)) {
     Hive.registerAdapter(FoodEntryAdapter());
   }
+  if (!Hive.isAdapterRegistered(8)) {
+    Hive.registerAdapter(WorkoutSetKindAdapter());
+  }
 
   await Hive.openBox<Routine>('routines');
   await Hive.openBox<WorkoutSession>('sessions');

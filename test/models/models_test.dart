@@ -4,11 +4,7 @@ import 'package:larger/models/models.dart';
 void main() {
   group('Exercise', () {
     test('assigns provided id and fields', () {
-      final exercise = Exercise(
-        id: 'ex-1',
-        name: 'Squat',
-        category: 'Legs',
-      );
+      final exercise = Exercise(id: 'ex-1', name: 'Squat', category: 'Legs');
 
       expect(exercise.id, 'ex-1');
       expect(exercise.name, 'Squat');
@@ -33,6 +29,28 @@ void main() {
       expect(routine.name, 'Push Day');
       expect(routine.exercises, hasLength(1));
       expect(routine.exercises.first.targetSets, 3);
+    });
+  });
+
+  group('WorkoutSet', () {
+    test('defaults to a working set that counts when completed', () {
+      final set = WorkoutSet()
+        ..reps = 5
+        ..weight = 100
+        ..isCompleted = true;
+
+      expect(set.kind, WorkoutSetKind.working);
+      expect(set.countsTowardTotals, isTrue);
+    });
+
+    test('a completed warmup set is logged but left out of totals', () {
+      final set = WorkoutSet()
+        ..reps = 10
+        ..weight = 20
+        ..isCompleted = true
+        ..kind = WorkoutSetKind.warmup;
+
+      expect(set.countsTowardTotals, isFalse);
     });
   });
 

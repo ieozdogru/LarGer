@@ -35,7 +35,9 @@ void main() {
 
     test('addExercise appends a new exercise with one set', () {
       notifier.startWorkout();
-      notifier.addExercise(Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'));
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'),
+      );
 
       final state = container.read(activeWorkoutProvider)!;
       expect(state.exercises, hasLength(1));
@@ -54,7 +56,9 @@ void main() {
 
     test('updateSet keeps the set id', () {
       notifier.startWorkout();
-      notifier.addExercise(Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'));
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'),
+      );
       final id = container
           .read(activeWorkoutProvider)!
           .exercises
@@ -73,7 +77,9 @@ void main() {
 
     test('replaceExercise keeps the logged sets', () {
       notifier.startWorkout();
-      notifier.addExercise(Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'));
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'),
+      );
       notifier.updateSet(0, 0, reps: 8, weight: 60, isCompleted: true);
       notifier.addExercise(Exercise(id: 'ex-2', name: 'Row', category: 'Back'));
 
@@ -100,7 +106,9 @@ void main() {
 
     test('addSet copies previous set values', () {
       notifier.startWorkout();
-      notifier.addExercise(Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'));
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'),
+      );
       notifier.updateSet(0, 0, reps: 8, weight: 60);
       notifier.addSet(0);
 
@@ -109,14 +117,35 @@ void main() {
       expect(sets.last.reps, 8);
       expect(sets.last.weight, 60);
       expect(sets.last.isCompleted, isFalse);
+      expect(sets.last.kind, WorkoutSetKind.working);
+    });
+
+    test('addSet copies the previous set kind', () {
+      notifier.startWorkout();
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'),
+      );
+      notifier.updateSet(0, 0, kind: WorkoutSetKind.warmup);
+      notifier.addSet(0);
+
+      final sets = container.read(activeWorkoutProvider)!.exercises.first.sets;
+      expect(sets.first.kind, WorkoutSetKind.warmup);
+      expect(sets.last.kind, WorkoutSetKind.warmup);
     });
 
     test('updateSet changes reps weight and completion', () {
       notifier.startWorkout();
-      notifier.addExercise(Exercise(id: 'ex-1', name: 'Squat', category: 'Legs'));
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Squat', category: 'Legs'),
+      );
       notifier.updateSet(0, 0, reps: 5, weight: 100, isCompleted: true);
 
-      final set = container.read(activeWorkoutProvider)!.exercises.first.sets.first;
+      final set = container
+          .read(activeWorkoutProvider)!
+          .exercises
+          .first
+          .sets
+          .first;
       expect(set.reps, 5);
       expect(set.weight, 100);
       expect(set.isCompleted, isTrue);
@@ -124,10 +153,15 @@ void main() {
 
     test('removeSet and removeExercise update state', () {
       notifier.startWorkout();
-      notifier.addExercise(Exercise(id: 'ex-1', name: 'Squat', category: 'Legs'));
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Squat', category: 'Legs'),
+      );
       notifier.addSet(0);
       notifier.removeSet(0, 1);
-      expect(container.read(activeWorkoutProvider)!.exercises.first.sets, hasLength(1));
+      expect(
+        container.read(activeWorkoutProvider)!.exercises.first.sets,
+        hasLength(1),
+      );
 
       notifier.removeExercise(0);
       expect(container.read(activeWorkoutProvider)!.exercises, isEmpty);
@@ -155,7 +189,9 @@ void main() {
 
     test('finishWorkout saves completed volume and clears state', () async {
       notifier.startWorkout(routineName: 'Legs');
-      notifier.addExercise(Exercise(id: 'ex-1', name: 'Squat', category: 'Legs'));
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Squat', category: 'Legs'),
+      );
       notifier.updateSet(0, 0, reps: 5, weight: 100, isCompleted: true);
       notifier.addSet(0);
       notifier.updateSet(0, 1, reps: 5, weight: 100, isCompleted: false);
@@ -173,9 +209,41 @@ void main() {
       expect(box.values.first.totalVolume, 500);
     });
 
+    test('finishWorkout leaves warmup sets out of volume', () async {
+      notifier.startWorkout();
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Squat', category: 'Legs'),
+      );
+      notifier.updateSet(
+        0,
+        0,
+        reps: 10,
+        weight: 20,
+        isCompleted: true,
+        kind: WorkoutSetKind.warmup,
+      );
+      notifier.addSet(0);
+      notifier.updateSet(
+        0,
+        1,
+        reps: 5,
+        weight: 100,
+        isCompleted: true,
+        kind: WorkoutSetKind.failure,
+      );
+
+      final session = await notifier.finishWorkout();
+
+      expect(session!.totalVolume, 500);
+      expect(session.exercises.single.sets.first.kind, WorkoutSetKind.warmup);
+      expect(session.exercises.single.sets.last.kind, WorkoutSetKind.failure);
+    });
+
     test('finishWorkout removes the saved draft', () async {
       notifier.startWorkout(routineName: 'Legs');
-      notifier.addExercise(Exercise(id: 'ex-1', name: 'Squat', category: 'Legs'));
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Squat', category: 'Legs'),
+      );
       expect(Hive.box<WorkoutSession>('activeWorkout').isNotEmpty, isTrue);
 
       await notifier.finishWorkout();
@@ -198,8 +266,25 @@ void main() {
       expect(state.exercises.single.sets.single.isCompleted, isTrue);
     });
 
+    test('a new notifier restores the set kind', () {
+      notifier.startWorkout();
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'),
+      );
+      notifier.updateSet(0, 0, kind: WorkoutSetKind.drop);
+
+      final next = ProviderContainer();
+      addTearDown(next.dispose);
+      expect(
+        next.read(activeWorkoutProvider)!.exercises.single.sets.single.kind,
+        WorkoutSetKind.drop,
+      );
+    });
+
     test('methods no-op when workout is inactive', () {
-      notifier.addExercise(Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'));
+      notifier.addExercise(
+        Exercise(id: 'ex-1', name: 'Bench', category: 'Chest'),
+      );
       notifier.addSet(0);
       notifier.updateSet(0, 0, reps: 1);
       notifier.removeSet(0, 0);

@@ -94,7 +94,8 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
     final lastSet = sets.isNotEmpty ? sets.last : null;
     final newSet = WorkoutSet()
       ..reps = lastSet?.reps ?? 0
-      ..weight = lastSet?.weight ?? 0.0;
+      ..weight = lastSet?.weight ?? 0.0
+      ..kind = lastSet?.kind ?? WorkoutSetKind.working;
 
     sets.add(newSet);
 
@@ -109,6 +110,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
     int? reps,
     double? weight,
     bool? isCompleted,
+    WorkoutSetKind? kind,
   }) {
     if (state == null) return;
     final exercises = List<WorkoutExercise>.from(state!.exercises);
@@ -120,6 +122,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
       reps: reps,
       weight: weight,
       isCompleted: isCompleted,
+      kind: kind,
     );
 
     exercises[exerciseIndex] = _copyExercise(exercises[exerciseIndex], sets);
@@ -185,7 +188,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState?> {
       double totalVolume = 0.0;
       for (var ex in state!.exercises) {
         for (var s in ex.sets) {
-          if (s.isCompleted) {
+          if (s.countsTowardTotals) {
             totalVolume += (s.reps * s.weight);
           }
         }
@@ -224,11 +227,13 @@ WorkoutSet _copySet(
   int? reps,
   double? weight,
   bool? isCompleted,
+  WorkoutSetKind? kind,
 }) {
   return WorkoutSet(id: set.id)
     ..reps = reps ?? set.reps
     ..weight = weight ?? set.weight
-    ..isCompleted = isCompleted ?? set.isCompleted;
+    ..isCompleted = isCompleted ?? set.isCompleted
+    ..kind = kind ?? set.kind;
 }
 
 WorkoutExercise _copyExercise(WorkoutExercise exercise, List<WorkoutSet> sets) {
