@@ -35,9 +35,13 @@ SampleDataTier readSampleDataTier() {
   );
 }
 
+/// Debug builds, or a release built with `--dart-define=DEV_SETTINGS=true`.
+bool get devSettingsEnabled =>
+    kDebugMode || const bool.fromEnvironment('DEV_SETTINGS');
+
 /// Seeds once on fresh debug installs (default: intermediate).
 Future<void> seedDevSampleDataIfNeeded() async {
-  if (!kDebugMode) return;
+  if (!devSettingsEnabled) return;
 
   final settings = Hive.box('settings');
   if (settings.containsKey(SampleDataTier.settingsKey)) return;
@@ -58,7 +62,7 @@ Future<void> seedDevSampleDataIfNeeded() async {
 
 /// Deterministic clear+seed path used by the Profile developer section.
 Future<void> seedDevSampleData({required SampleDataTier tier}) async {
-  if (!kDebugMode) return;
+  if (!devSettingsEnabled) return;
 
   final exerciseBox = Hive.box<Exercise>('exercises');
   Exercise? byName(String name) {
