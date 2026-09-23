@@ -275,14 +275,26 @@ class _CreateRoutineScreenState extends ConsumerState<_CreateRoutineScreen> {
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: ListView.builder(
+              child: ReorderableListView.builder(
+                buildDefaultDragHandles: false,
                 itemCount: selectedExercises.length,
+                onReorderItem: (oldIndex, newIndex) {
+                  setState(() {
+                    final item = selectedExercises.removeAt(oldIndex);
+                    selectedExercises.insert(newIndex, item);
+                  });
+                },
                 itemBuilder: (context, index) {
                   final ex = selectedExercises[index];
                   final sets = targetSets[ex.id] ?? 3;
 
                   return Card(
+                    key: ValueKey(ex.id),
                     child: ListTile(
+                      leading: ReorderableDragStartListener(
+                        index: index,
+                        child: const Icon(Icons.drag_handle),
+                      ),
                       title: Text(ex.name),
                       subtitle: Row(
                         children: [
